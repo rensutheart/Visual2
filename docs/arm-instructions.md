@@ -182,6 +182,27 @@ The last operand of all data processing instructions uses the ARM "flexible oper
 
 This is useful when the constant is not a valid immediate for `MOV`. Internally represented as `LDREQUAL` in the parser.
 
+### LDRH / LDRSH / STRH / LDRSB — Half-Word and Signed Byte Load/Store
+
+**Syntax:** `OP{cond} Rd, <address>`
+
+| Mnemonic | Operation | Transfer Size | Sign Extension |
+|----------|-----------|---------------|----------------|
+| `LDRH` | Rd ← Memory16[addr], zero-extended to 32 bits | 16-bit | No |
+| `LDRSH` | Rd ← Memory16[addr], sign-extended to 32 bits | 16-bit | Yes (bit 15) |
+| `STRH` | Memory16[addr] ← Rd[15:0] | 16-bit | N/A |
+| `LDRSB` | Rd ← Memory8[addr], sign-extended to 32 bits | 8-bit | Yes (bit 7) |
+
+**Addressing modes:** Same offset, pre-indexed, and post-indexed modes as LDR/STR.
+
+**Offset constraints:**
+- Immediate: ±255
+- Register: `±Rm` (no shifted register)
+
+**Alignment:** Half-word instructions (`LDRH`, `LDRSH`, `STRH`) require the effective address to be 2-byte aligned (even address). Misaligned access produces a runtime error.
+
+**Invalid combinations:** `STRSH` and `STRSB` do not exist — they are rejected at parse time.
+
 ---
 
 ## Memory Instructions — Multiple Registers
@@ -330,7 +351,6 @@ The following ARM features are **not supported** in VisUAL2:
 
 | Category | Missing Instructions/Features |
 |----------|-------------------------------|
-| Half-word memory | `LDRH`, `LDRSH`, `STRH`, `LDRSB` |
 | Multiply | `MUL`, `MLA`, `UMULL`, `UMLAL`, `SMULL`, `SMLAL` |
 | Swap | `SWP`, `SWPB` |
 | Software interrupt | `SWI` / `SVC` |
@@ -338,7 +358,6 @@ The following ARM features are **not supported** in VisUAL2:
 | Saturating arithmetic | `QADD`, `QSUB`, etc. |
 | Thumb mode | All Thumb/Thumb-2 encoding |
 | Privileged mode | `MSR`, `MRS`, mode switching |
-| Signed byte load | `LDRSB` |
 | Double-word | `LDRD`, `STRD` |
 
 ---
@@ -352,6 +371,7 @@ Data Processing:   MOV  MVN  ADD  SUB  ADC  SBC  RSB  RSC
                    LSL  LSR  ASR  ROR  RRX
 
 Memory (single):   LDR  LDRB  STR  STRB  LDR Rd,=val
+                   LDRH  LDRSH  STRH  LDRSB
 
 Memory (multiple): LDM{IA|IB|DA|DB|FD|ED|FA|EA}
                    STM{IA|IB|DA|DB|FD|ED|FA|EA}
@@ -362,4 +382,4 @@ Branches:          B    BL   BX   BLX  END
 Directives:        DCD  DCB  FILL  EQU  ADR
 ```
 
-**Total:** 21 data processing + 5 memory (single) + 16 memory (multiple modes) + 2 stack (PUSH/POP) + 5 branch + 5 directives = **54 base mnemonics**, expanding to hundreds of valid opcode strings with condition codes and suffixes.
+**Total:** 21 data processing + 9 memory (single) + 16 memory (multiple modes) + 2 stack (PUSH/POP) + 5 branch + 5 directives = **58 base mnemonics**, expanding to hundreds of valid opcode strings with condition codes and suffixes.

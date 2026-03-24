@@ -15,8 +15,11 @@ module Memory
 
     /// Suffix of LDR and STR instructions
     type MSize =
-        | MWord /// LDRB,STRB
-        | MByte /// LDR,STR
+        | MWord /// LDR,STR — 32-bit
+        | MByte /// LDRB,STRB — 8-bit unsigned
+        | MHalf /// LDRH,STRH — 16-bit unsigned
+        | MSignedHalf /// LDRSH — 16-bit signed
+        | MSignedByte /// LDRSB — 8-bit signed
 
     type LSType =
         | LOAD /// LDR,LDRB
@@ -90,6 +93,12 @@ module Memory
         Suffixes = [ "" ]
     }
 
+    let memSpecHalf = {
+        InstrC = MEM
+        Roots = [ "LDR"; "STR" ]
+        Suffixes = [ "H"; "SH"; "SB" ]
+    }
+
     let memTypeSingleMap =
         Map.ofList [
             "LDR", LDR;
@@ -106,7 +115,7 @@ module Memory
     /// map of all possible opcodes recognised
     let opCodes =
         let toArr = opCodeExpand >> Map.toArray
-        Array.collect toArr [| memSpecSingle; memSpecMultiple; memSpecStack |]
+        Array.collect toArr [| memSpecSingle; memSpecMultiple; memSpecStack; memSpecHalf |]
         |> Map.ofArray
 
 
@@ -158,6 +167,9 @@ module Memory
                 match uSuffix with
                 | "" -> MWord
                 | "B" -> MByte
+                | "H" -> MHalf
+                | "SH" -> MSignedHalf
+                | "SB" -> MSignedByte
                 | _ -> failwithf "What? Suffix '%s' on LDR or STR is not possible" uSuffix
 
             /// matches "!" or "" at end of memory instruction
@@ -205,6 +217,7 @@ module Memory
                         match mSize with
                         | MWord -> 4092, -4092
                         | MByte -> 1023, -1023
+                        | MHalf | MSignedHalf | MSignedByte -> 255, -255
                     match memImmBounds, immTxt with
                     | _, IMMEXPR(n, txt) when mSize = MWord && (n % 4u <> 0u) ->
                         (makeParseError "immediate word offset divisible by 4" ("offset=" + (int32 n).ToString()) "ea", txt) |> Some
@@ -258,7 +271,7 @@ module Memory
                             Rb = rb
                             MAddr = spf'
                             MemMode = mode'
-                            MemSize = match uSuffix with | "B" -> MByte | _ -> MWord
+                            MemSize = mSize
                         }
                 | _ -> makeParseError "LDR/STR Effective address" txt "list#single-register-memory-transfer-instructions"
             | _ -> makeParseError "LDR/STR register name" ls.Operands "list#single-register-memory-transfer-instructions"
@@ -418,11 +431,13 @@ module Memory
         let parse' (_instrC, (root : string, suffix : string, pCond)) =
             let uRoot = root.ToUpper()
             let uSuffix = suffix.ToUpper()
-            let singleSuffix = match uSuffix with | "" | "B" -> true | _ -> false
+            let singleSuffix = match uSuffix with | "" | "B" | "H" | "SH" | "SB" -> true | _ -> false
             match singleSuffix, uRoot with
             | true, "LDR" when String.exists ((=) '=') ls.Operands && uSuffix = ""
                 -> parseLoad32 pCond
             | true, "LDR" -> parseSingle LOAD uRoot uSuffix pCond
+            | true, "STR" when uSuffix = "SH" || uSuffix = "SB" ->
+                copyParse ls (makeParseError "valid instruction (STRSH/STRSB do not exist)" (sprintf "STR%s" uSuffix) "") pCond
             | true, "STR" -> parseSingle STORE uRoot uSuffix pCond
             | true, "PUSH" -> parsePushPop STM DB pCond
             | true, "POP" -> parsePushPop LDM IA pCond
@@ -456,6 +471,40 @@ module Memory
         getDataMemWord wordA dp
         |> Result.map (fun w -> (w >>> bitOffset) &&& 0xFFu)
 
+    let getDataMemHalfWord (ef : uint32) (dp : DataPath) =
+        if ef % 2u <> 0u then
+            ``Run time error`` (ef, (sprintf "half-word address 0x%x must be half-word aligned" ef)) |> Error
+        else
+            let wordAddr = ef &&& 0xFFFFFFFCu
+            let bitOffset = (ef &&& 0x2u) * 8u |> int
+            getDataMemWord wordAddr dp
+            |> Result.map (fun w -> (w >>> bitOffset) &&& 0xFFFFu)
+
+    let getDataMemSignedHalfWord (ef : uint32) (dp : DataPath) =
+        getDataMemHalfWord ef dp
+        |> Result.map (fun v -> if v > 0x7FFFu then v ||| 0xFFFF0000u else v)
+
+    let getDataMemSignedByte (ef : uint32) (dp : DataPath) =
+        getDataMemByte ef dp
+        |> Result.map (fun v -> if v > 0x7Fu then v ||| 0xFFFFFF00u else v)
+
+    let updateMemHalfWord (value : uint16) (a : uint32) (dp : DataPath) =
+        if a % 2u <> 0u then
+            ``Run time error`` (a, (sprintf "half-word address 0x%x must be half-word aligned" a)) |> Error
+        else
+            let baseAddr = a &&& 0xFFFFFFFCu
+            let bitOffset = (a &&& 0x2u) * 8u |> int
+            let mask = 0xFFFFu <<< bitOffset
+            match Map.tryFind (WA baseAddr) dp.MM with
+            | Some CodeSpace ->
+                ``Run time error`` (a, " Updating a half-word in instruction memory space.") |> Error
+            | Some(Dat old) ->
+                let newVal = (old &&& ~~~mask) ||| ((uint32 value) <<< bitOffset)
+                updateMemData (Dat newVal) baseAddr dp
+            | None ->
+                let newVal = (uint32 value) <<< bitOffset
+                updateMemData (Dat newVal) baseAddr dp
+
     let executeLDRSTR (ins : InstrMemSingle) (dp : DataPath) =
         let addr = ins.MAddr dp (int32 dp.Regs.[ins.Rb]) |> uint32
         let rbv = dp.Regs.[ins.Rb]
@@ -471,13 +520,18 @@ module Memory
                 match ins.LSType with
                 | LOAD ->
                      match ins.MemSize with
-                     | MWord -> (getDataMemWord ef dp)
-                     | MByte -> (getDataMemByte ef dp)
+                     | MWord -> getDataMemWord ef dp
+                     | MByte -> getDataMemByte ef dp
+                     | MHalf -> getDataMemHalfWord ef dp
+                     | MSignedHalf -> getDataMemSignedHalfWord ef dp
+                     | MSignedByte -> getDataMemSignedByte ef dp
                      |> Result.map (fun dat -> updateReg dat ins.Rd dp)
                 | STORE ->
                     match ins.MemSize with
                     | MWord -> updateMemData (Dat dp.Regs.[ins.Rd]) ef dp
-                    | MByte -> updateMemByte (dp.Regs.[ins.Rd] |> byte) ef dp)
+                    | MByte -> updateMemByte (dp.Regs.[ins.Rd] |> byte) ef dp
+                    | MHalf -> updateMemHalfWord (dp.Regs.[ins.Rd] |> uint16) ef dp
+                    | MSignedHalf | MSignedByte -> failwithf "What? STRSH/STRSB should not reach execution")
 
     let offsetList start suffix rl wb isLDM =
         let rec makeOffsetList inlst outlist incr start =

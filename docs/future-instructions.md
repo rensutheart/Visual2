@@ -2,7 +2,7 @@
 
 This document describes what would be needed to add the following instruction groups to the simulator:
 
-1. [Half-word memory: LDRH, LDRSH, STRH, LDRSB](#1-half-word-memory-ldrh-ldrsh-strh-ldrsb)
+1. [~~Half-word memory: LDRH, LDRSH, STRH, LDRSB~~](#1-half-word-memory-ldrh-ldrsh-strh-ldrsb) — **IMPLEMENTED**
 2. [Multiply: MUL, MLA, UMULL, UMLAL, SMULL, SMLAL](#2-multiply-mul-mla-umull-umlal-smull-smlal)
 3. [~~Branch exchange: BX, BLX~~](#3-branch-exchange-bx-blx) — **IMPLEMENTED**
 4. [~~Stack shorthand: PUSH, POP~~](#4-stack-shorthand-push-pop) — **IMPLEMENTED** (commit f73a000)
