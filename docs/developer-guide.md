@@ -10,14 +10,17 @@ A walkthrough of the VisUAL2 codebase for new developers. This document explains
 2. [Build System & Toolchain](#build-system--toolchain)
 3. [Project Structure](#project-structure)
 4. [Emulator Core (src/Emulator/)](#emulator-core-srcemulator)
-5. [Renderer / GUI (src/Renderer/)](#renderer--gui-srcrenderer)
-6. [Electron Main Process (src/Main/)](#electron-main-process-srcmain)
-7. [Frontend Assets (app/)](#frontend-assets-app)
-8. [Data Flow: Source Code → Execution → Display](#data-flow-source-code--execution--display)
-9. [Key Abstractions](#key-abstractions)
-10. [How to Add a New Instruction](#how-to-add-a-new-instruction)
-11. [Testing & Testbenches](#testing--testbenches)
-12. [Common Tasks](#common-tasks)
+5. [Pipelining Model](#pipelining-model)
+6. [Renderer / GUI (src/Renderer/)](#renderer--gui-srcrenderer)
+7. [Electron Main Process (src/Main/)](#electron-main-process-srcmain)
+8. [Frontend Assets (app/)](#frontend-assets-app)
+9. [Data Flow: Source Code → Execution → Display](#data-flow-source-code--execution--display)
+10. [Key Abstractions](#key-abstractions)
+11. [How to Add a New Instruction](#how-to-add-a-new-instruction)
+12. [Testing & Testbenches](#testing--testbenches)
+13. [Common Tasks](#common-tasks)
+
+> **See also:** [ARM Instructions Reference](arm-instructions.md) for the complete list of supported instructions, operand formats, and condition codes.
 
 ---
 
@@ -239,6 +242,8 @@ type DataPath = {
 
 Every instruction takes a `DataPath` and returns a new `DataPath` — state is immutable.
 
+> **Pipelining note:** the `DataPath` comment says "PC can be found as R15 - 8", but in practice the PC displayed to the user is the instruction address itself. The +8 pipelining offset is applied transiently during execution (see [Pipelining Model](#pipelining-model) below).
+
 ### CommonLex.fs — Parsing Foundation
 
 Defines how opcode strings are parsed:
@@ -284,13 +289,33 @@ type Instr = IMEM of Memory.Instr | IDP of DP.Instr | IMISC of Misc.Instr
 3. Multi-pass: re-parse until all forward references resolve (iterates to fixed point)
 4. Produce a `LoadImage` with code memory, data memory, errors, and symbol info
 
+Code memory is stored as a `Map<WAddr, CondInstr * int>` where `CondInstr` is `{Cond; InsExec; InsOpCode}` and the `int` is the source line number. Data memory is `Map<WAddr, Data>` where `Data = Dat of uint32 | CodeSpace`.
+
 **Execution** (`asmStep`):
 1. Read PC from `DataPath.Regs[R15]`
 2. Fetch instruction from code memory at PC
-3. Evaluate condition code against current flags
+3. Evaluate condition code against current flags via `condExecute`
 4. If condition true: dispatch to the appropriate module's execute function
-5. Update PC (+4 for next instruction, or branch target)
-6. Record history for back-stepping
+5. If condition false: pass through unchanged (no flags update)
+6. Update PC (see Pipelining Model below)
+7. Record history snapshot every 500 steps for back-stepping
+
+### Pipelining Model
+
+This is the most subtle part of the codebase. ARM's 3-stage pipeline means that when an instruction executes, `PC` reads as the instruction address + 8. The simulator implements this with a bracket trick in `dataPathStep`:
+
+```
+Before execution:  addToPc +8       → PC reads as addr+8 (ARM pipelining)
+Instruction runs:  uses PC value     → sees correct addr+8
+After execution:   addToPc (4-8)     → net effect: addr+4 (advance to next)
+```
+
+The key functions:
+- `dataPathStep` does `addToPc 8 dp` before dispatch, then `addToPc (4-8) dp` after
+- Net result for sequential execution: PC advances by +4
+- **`setReg R15 addr`** in `Helpers.fs` adds `setPCOffset = 4` to compensate for the post-execution -4 adjustment — so `setReg R15 target` stores `target + 4`, which after `-4` adjustment yields `target`
+- Branch instructions (`B`, `BL`) write their target via `setReg R15`, so the adjustment is automatic
+- The `setRegRaw` variant does NOT add the offset — used internally when the caller handles addressing manually
 
 ---
 
@@ -490,12 +515,16 @@ The immutable ARM state. Every instruction is a pure function: `DataPath → Res
 ### Flexible Operand 2 (Op2)
 
 ARM's signature feature — the second operand to data processing instructions can be:
-- **Immediate**: 8-bit value rotated right by an even amount (0–30). Pre-computed in `makeOkLitMap()`.
-- **Register**: Rn, optionally shifted by an immediate (LSL, LSR, ASR, ROR)
-- **Register shifted by register**: Rn shifted by Rm\[4:0\]
-- **RRX**: rotate right through carry (1-bit rotation including carry flag)
+- **Immediate** (`NumberLiteral`): 8-bit value rotated right by an even amount (0–30). The full set of valid immediates is pre-computed at startup in `makeOkLitMap()`. The parser also supports a `NegatedLit` mode (for SUB↔ADD, CMP↔CMN) and `InvertedLit` mode (for AND↔BIC, MOV↔MVN) — if the literal is invalid for the given opcode but its negation/inversion is valid, the opcode is transparently swapped.
+- **Register with immediate shift** (`RegisterWithShift`): Rn optionally shifted by an immediate (LSL #0–#31, LSR #1–#32, ASR #1–#32, ROR #1–#31)
+- **Register shifted by register** (`RegisterWithRegisterShift`): Rn shifted by Rm\[4:0\]
+- **RRX** (`RegisterWithRRX`): rotate right through carry (1-bit rotation including carry flag)
 
-Evaluated by `DP.evalOp2: Op2 → DataPath → (uint32 * UCarry)`.
+Evaluated by `DP.evalOp2: Op2 → DataPath → (uint32 * UCarry)`. The carry output is used by `S`-suffixed logical instructions to update the C flag.
+
+### UFlags — Flag Update Tracking
+
+Instructions return `UFlags = {F: Flags; CU: bool; VU: bool; NZU: bool; RegU: RName list}` alongside the updated `DataPath`. The `*U` fields indicate *which* flag groups were actually updated — used by the GUI to highlight changed flags. Comparison instructions (CMP, CMN, TST, TEQ) always update flags; other DP instructions only update when the `S` suffix is present.
 
 ### Addressing Modes (Memory)
 
@@ -521,11 +550,28 @@ match instr with
 ### Symbol Resolution
 
 Multi-pass loading handles forward references:
-1. Pass 1: parse all lines — some symbols undefined
-2. Pass 2+: re-parse with newly resolved symbols
+1. Pass 1: parse all lines — some symbols undefined, expressions return `Error ("Undefined symbol" [names])`
+2. Pass 2+: re-parse lines that previously had unresolved symbols, using the expanded symbol table
 3. Repeat until no new symbols resolve (fixed point)
 
 Symbol types: `CodeSymbol` (instruction address), `DataSymbol` (DCD/DCB/FILL address), `CalculatedSymbol` (EQU value).
+
+The expression evaluator (`Expressions.fs`) supports:
+- Decimal literals: `123`
+- Hex literals: `0xFF`
+- Binary literals: `0b1010`
+- Label references: `myLabel`
+- Arithmetic: `+`, `-`, `*` between sub-expressions
+- Unary minus: `-expr`
+- Parentheses: `(expr)`
+
+The active pattern `RESOLVEALL` (in `CommonLex.fs`) is used by parse functions to resolve a list of operand expressions against the symbol table. If any operand is unresolved, the pattern match fails gracefully, deferring to the next resolution pass.
+
+### Memory Model
+
+Memory is word-addressed via `WAddr = WA of uint32`. The map stores either data (`Dat of uint32`) or code-space markers (`CodeSpace`). Code and data occupy separate address ranges: code starts at `0x0`, data starts at configurable `minDataStart` (default `0x200`). The `LoadPos` record tracks current insertion positions during program loading.
+
+LDR/STR instructions work with byte addresses but the underlying memory is word-aligned. Byte loads (`LDRB`) extract the appropriate byte from a 32-bit word; byte stores (`STRB`) modify only the relevant byte.
 
 ---
 

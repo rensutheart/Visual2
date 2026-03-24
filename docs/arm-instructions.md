@@ -1,0 +1,339 @@
+# VisUAL2 — Supported ARM Instructions
+
+A complete reference of all ARM assembly instructions and directives supported by the VisUAL2 simulator.
+
+> **Source files:** Instruction definitions live in `src/Emulator/` — specifically `DP.fs`, `Memory.fs`, `Branch.fs`, and `Misc.fs`.
+
+---
+
+## Table of Contents
+
+1. [Condition Codes](#condition-codes)
+2. [Registers](#registers)
+3. [Data Processing Instructions](#data-processing-instructions)
+4. [Flexible Operand 2](#flexible-operand-2)
+5. [Memory Instructions — Single Register](#memory-instructions--single-register)
+6. [Memory Instructions — Multiple Registers](#memory-instructions--multiple-registers)
+7. [Branch Instructions](#branch-instructions)
+8. [Pseudo-Instructions & Directives](#pseudo-instructions--directives)
+9. [Expressions](#expressions)
+10. [Notable Limitations](#notable-limitations)
+
+---
+
+## Condition Codes
+
+All instructions (except `END` and the data directives `DCD`, `DCB`, `FILL`, `EQU`) can be conditionally executed by appending a 2-letter condition suffix. If omitted, the instruction always executes (equivalent to `AL`).
+
+| Suffix | Condition | Flags Tested |
+|--------|-----------|--------------|
+| `EQ` | Equal | Z = 1 |
+| `NE` | Not equal | Z = 0 |
+| `CS` / `HS` | Carry set / Unsigned ≥ | C = 1 |
+| `CC` / `LO` | Carry clear / Unsigned < | C = 0 |
+| `MI` | Minus (negative) | N = 1 |
+| `PL` | Plus (positive or zero) | N = 0 |
+| `VS` | Overflow set | V = 1 |
+| `VC` | Overflow clear | V = 0 |
+| `HI` | Unsigned higher | C = 1 AND Z = 0 |
+| `LS` | Unsigned lower or same | C = 0 OR Z = 1 |
+| `GE` | Signed ≥ | N = V |
+| `GT` | Signed > | Z = 0 AND N = V |
+| `LT` | Signed < | N ≠ V |
+| `LE` | Signed ≤ | Z = 1 OR N ≠ V |
+| `AL` | Always (default) | — |
+| `NV` | Never | — |
+
+---
+
+## Registers
+
+| Name | Alias | Description |
+|------|-------|-------------|
+| `R0`–`R12` | — | General-purpose registers |
+| `R13` | `SP` | Stack pointer |
+| `R14` | `LR` | Link register (return address for `BL`) |
+| `R15` | `PC` | Program counter (reads as current instruction + 8 due to pipelining) |
+
+**Flags** (updated by comparison instructions and `S`-suffixed instructions):
+
+| Flag | Meaning |
+|------|---------|
+| `N` | Negative — result bit 31 is set |
+| `Z` | Zero — result is zero |
+| `C` | Carry — carry out / shift out |
+| `V` | Overflow — signed overflow |
+
+---
+
+## Data Processing Instructions
+
+All data processing instructions support:
+- Optional `S` suffix to update flags (comparison instructions always update flags)
+- All 16 condition codes
+- Flexible Operand 2 for the last operand (see below)
+
+### Arithmetic (3-operand: `OP{S}{cond} Rd, Rn, Op2`)
+
+| Mnemonic | Operation | Notes |
+|----------|-----------|-------|
+| `ADD` | Rd = Rn + Op2 | If literal invalid, tries SUB with negated literal |
+| `SUB` | Rd = Rn − Op2 | If literal invalid, tries ADD with negated literal |
+| `ADC` | Rd = Rn + Op2 + C | Add with carry |
+| `SBC` | Rd = Rn − Op2 − !C | Subtract with carry |
+| `RSB` | Rd = Op2 − Rn | Reverse subtract |
+| `RSC` | Rd = Op2 − Rn − !C | Reverse subtract with carry |
+
+### Logical (3-operand: `OP{S}{cond} Rd, Rn, Op2`)
+
+| Mnemonic | Operation | Notes |
+|----------|-----------|-------|
+| `AND` | Rd = Rn AND Op2 | If literal invalid, tries BIC with inverted literal |
+| `ORR` | Rd = Rn OR Op2 | |
+| `EOR` | Rd = Rn XOR Op2 | |
+| `BIC` | Rd = Rn AND NOT Op2 | Bit clear; if literal invalid, tries AND with inverted literal |
+
+### Move (2-operand: `OP{S}{cond} Rd, Op2`)
+
+| Mnemonic | Operation | Notes |
+|----------|-----------|-------|
+| `MOV` | Rd = Op2 | If literal invalid, tries MVN with inverted literal |
+| `MVN` | Rd = NOT Op2 | If literal invalid, tries MOV with inverted literal |
+
+### Comparison (2-operand: `OP{cond} Rn, Op2` — no destination, always updates flags)
+
+| Mnemonic | Operation | Notes |
+|----------|-----------|-------|
+| `CMP` | Flags = Rn − Op2 | If literal invalid, tries CMN with negated literal |
+| `CMN` | Flags = Rn + Op2 | If literal invalid, tries CMP with negated literal |
+| `TST` | Flags = Rn AND Op2 | |
+| `TEQ` | Flags = Rn XOR Op2 | |
+
+> **Note:** `CMP`/`CMN`/`TST`/`TEQ` do not accept the `S` suffix — flags are always updated. Writing `CMPS` is a parse error.
+
+### Shift (3-operand: `OP{S}{cond} Rd, Rn, #imm | Rs`)
+
+| Mnemonic | Operation | Immediate Range |
+|----------|-----------|-----------------|
+| `LSL` | Rd = Rn << amount | #0–#31 |
+| `LSR` | Rd = Rn >>> amount (logical) | #1–#32 |
+| `ASR` | Rd = Rn >> amount (arithmetic) | #1–#32 |
+| `ROR` | Rd = Rn rotated right by amount | #1–#31 |
+
+### RRX (2-operand: `RRX{S}{cond} Rd, Rn`)
+
+| Mnemonic | Operation |
+|----------|-----------|
+| `RRX` | Rd = (C << 31) OR (Rn >>> 1); C = Rn[0] |
+
+---
+
+## Flexible Operand 2
+
+The last operand of all data processing instructions uses the ARM "flexible operand 2" format:
+
+| Format | Syntax | Example | Description |
+|--------|--------|---------|-------------|
+| Immediate | `#value` | `#42`, `#0xFF` | 8-bit constant rotated right by even amount (0–30). Not all 32-bit values are valid. |
+| Register | `Rn` | `R3` | Value in register |
+| Register + immediate shift | `Rn, SHIFT #imm` | `R2, LSL #3` | Shifted register with constant shift amount |
+| Register + register shift | `Rn, SHIFT Rs` | `R2, LSL R4` | Shifted register with shift amount from Rs[4:0] |
+| Register + RRX | `Rn, RRX` | `R2, RRX` | Rotate right extended (1-bit through carry) |
+
+**Valid shift types:** `LSL`, `LSR`, `ASR`, `ROR`
+
+**Immediate literal rules:** The value must be expressible as an 8-bit number rotated right by an even amount. For example, `#0xFF` (valid), `#0x3FC` (valid: 0xFF ROR 30), but `#0x101` (invalid: not representable). When a literal is invalid, the assembler automatically tries:
+- **Negated literal** (for ADD↔SUB, CMP↔CMN): e.g., `ADD R0, R1, #-1` becomes `SUB R0, R1, #1`
+- **Inverted literal** (for AND↔BIC, MOV↔MVN): e.g., `MOV R0, #0xFFFFFF00` becomes `MVN R0, #0xFF`
+
+---
+
+## Memory Instructions — Single Register
+
+### LDR / STR — Word and Byte Load/Store
+
+**Syntax:** `OP{B}{cond} Rd, <address>`
+
+| Mnemonic | Operation | Transfer Size |
+|----------|-----------|---------------|
+| `LDR` | Rd ← Memory[addr] | 32-bit word |
+| `LDRB` | Rd ← Memory[addr] (zero-extended) | 8-bit byte |
+| `STR` | Memory[addr] ← Rd | 32-bit word |
+| `STRB` | Memory[addr] ← Rd (lowest byte) | 8-bit byte |
+
+### Addressing Modes
+
+| Mode | Syntax | Behaviour |
+|------|--------|-----------|
+| Offset | `[Rn]` or `[Rn, #offset]` | Address = Rn + offset; Rn unchanged |
+| Pre-indexed | `[Rn, #offset]!` | Address = Rn + offset; Rn updated to address |
+| Post-indexed | `[Rn], #offset` | Address = Rn; Rn updated to Rn + offset |
+
+**Offset formats:**
+- Immediate: `#value` (±4092 for word, ±255 for byte)
+- Register: `±Rm`
+- Scaled register: `±Rm, LSL #n` / `±Rm, LSR #n` / `±Rm, ASR #n`
+
+### LDR pseudo-instruction
+
+| Syntax | Description |
+|--------|-------------|
+| `LDR Rd, =constant` | Load any 32-bit constant into Rd. The assembler handles encoding. |
+
+This is useful when the constant is not a valid immediate for `MOV`. Internally represented as `LDREQUAL` in the parser.
+
+---
+
+## Memory Instructions — Multiple Registers
+
+### LDM / STM — Block Load/Store
+
+**Syntax:** `OP{mode}{cond} Rn{!}, {reglist}`
+
+| Mnemonic | Operation |
+|----------|-----------|
+| `LDM` | Load multiple registers from consecutive memory addresses |
+| `STM` | Store multiple registers to consecutive memory addresses |
+
+**`!`** = writeback: update Rn with the final address after the transfer.
+
+**`{reglist}`** = comma-separated register list in braces, e.g., `{R0, R2-R5, LR}`
+
+### Addressing Mode Suffixes
+
+| Suffix | Full Name | Direction | When Rn Updated |
+|--------|-----------|-----------|-----------------|
+| `IA` | Increment After | Ascending | After each transfer |
+| `IB` | Increment Before | Ascending | Before each transfer |
+| `DA` | Decrement After | Descending | After each transfer |
+| `DB` | Decrement Before | Descending | Before each transfer |
+
+### Stack Operation Aliases
+
+These are equivalent to the addressing modes above but named for stack usage:
+
+| Alias | LDM equivalent | STM equivalent | Stack Type |
+|-------|---------------|----------------|------------|
+| `FD` | Full Descending | `LDMDB` / `STMDB` | Standard ARM stack |
+| `FA` | Full Ascending | `LDMDA` / `STMDA` | |
+| `ED` | Empty Descending | `LDMIB` / `STMIB` | |
+| `EA` | Empty Ascending | `LDMIA` / `STMIA` | |
+
+> **Note:** `PUSH` and `POP` are not supported as standalone instructions. Use `STMFD SP!, {regs}` and `LDMFD SP!, {regs}` instead (or equivalently `STMDB`/`LDMIA`).
+
+---
+
+## Branch Instructions
+
+**Syntax:** `OP{cond} label`
+
+| Mnemonic | Operation | Cycles |
+|----------|-----------|--------|
+| `B` | Branch to label (PC = label address) | 2 |
+| `BL` | Branch with link (LR = next instruction address, PC = label) | 2 |
+| `END` | Terminate program execution | 0 |
+
+- `B` and `BL` support all 16 condition codes
+- `END` does not support condition codes or operands
+- The label must be a valid expression that resolves to an instruction address
+- There is no `BX` (branch and exchange) instruction
+
+---
+
+## Pseudo-Instructions & Directives
+
+These are assembler directives — they do not generate executable code but affect memory layout and symbols.
+
+### Data Definitions
+
+| Directive | Syntax | Description |
+|-----------|--------|-------------|
+| `DCD` | `label DCD expr1, expr2, ...` | Define 32-bit word constants. Allocates 4 bytes per value. |
+| `DCB` | `label DCB byte1, byte2, ...` | Define byte constants. Total byte count must be divisible by 4. |
+| `FILL` | `label FILL nBytes [, value]` | Fill memory with `value` (default 0). `nBytes` must be divisible by 4. |
+| `EQU` | `label EQU expression` | Define a named constant (no memory allocated). |
+
+All data directives **require a label**.
+
+Values can be:
+- Decimal: `100`, `-5`
+- Hexadecimal: `0xFF`
+- Binary: `0b1010`
+- Labels: `myLabel`
+- Expressions: `myLabel + 4`, `(SIZE * 2) - 1`
+
+### ADR — Load Address
+
+| Directive | Syntax | Description |
+|-----------|--------|-------------|
+| `ADR` | `ADR{cond} Rd, label` | Load the address of `label` into `Rd`. |
+
+**Constraints:**
+- Byte offset (label − PC − 8) must be in range −248 to +264 if not word-aligned
+- Word offset must be in range −1016 to +1032
+- For larger offsets, use `LDR Rd, =label` instead
+- Supports all condition codes
+- Writing to R15 (PC) causes a 2-cycle stall
+
+---
+
+## Expressions
+
+Operands that accept numeric values (immediates, DCD values, EQU definitions, etc.) support expressions:
+
+| Element | Example | Description |
+|---------|---------|-------------|
+| Decimal | `42` | |
+| Hexadecimal | `0xFF`, `0XFF` | |
+| Binary | `0b1010` | |
+| Label reference | `myLabel` | Resolves to the label's address or EQU value |
+| Addition | `a + b` | |
+| Subtraction | `a - b` | |
+| Multiplication | `a * b` | |
+| Unary minus | `-expr` | |
+| Parentheses | `(a + b) * c` | |
+
+Forward references to labels are resolved automatically via multi-pass assembly.
+
+---
+
+## Notable Limitations
+
+The following ARM features are **not supported** in VisUAL2:
+
+| Category | Missing Instructions/Features |
+|----------|-------------------------------|
+| Half-word memory | `LDRH`, `LDRSH`, `STRH`, `LDRSB` |
+| Multiply | `MUL`, `MLA`, `UMULL`, `UMLAL`, `SMULL`, `SMLAL` |
+| Branch exchange | `BX`, `BLX` |
+| Stack shorthand | `PUSH`, `POP` |
+| Swap | `SWP`, `SWPB` |
+| Software interrupt | `SWI` / `SVC` |
+| Coprocessor | `MCR`, `MRC`, `LDC`, `STC` |
+| Saturating arithmetic | `QADD`, `QSUB`, etc. |
+| Thumb mode | All Thumb/Thumb-2 encoding |
+| Privileged mode | `MSR`, `MRS`, mode switching |
+| Signed byte load | `LDRSB` |
+| Double-word | `LDRD`, `STRD` |
+
+---
+
+## Quick Reference — All Mnemonics
+
+```
+Data Processing:   MOV  MVN  ADD  SUB  ADC  SBC  RSB  RSC
+                   AND  ORR  EOR  BIC
+                   CMP  CMN  TST  TEQ
+                   LSL  LSR  ASR  ROR  RRX
+
+Memory (single):   LDR  LDRB  STR  STRB  LDR Rd,=val
+
+Memory (multiple): LDM{IA|IB|DA|DB|FD|ED|FA|EA}
+                   STM{IA|IB|DA|DB|FD|ED|FA|EA}
+
+Branches:          B    BL   END
+
+Directives:        DCD  DCB  FILL  EQU  ADR
+```
+
+**Total:** 21 data processing + 5 memory (single) + 16 memory (multiple modes) + 3 branch + 5 directives = **50 base mnemonics**, expanding to hundreds of valid opcode strings with condition codes and suffixes.
