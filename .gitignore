@@ -9,6 +9,10 @@ paket-files
 dist/*
 test-results/*
 !test-results
+.fable/
+dotnet-install.ps1
+yarn.lock
+.ionide/
 
 
 ## Ignore Visual Studio temporary files, build results, and
