@@ -13,6 +13,7 @@ open CommonData
 open DP
 open Memory
 open Branch
+open Multiply
 open Misc
 open CommonLex
 open Helpers
@@ -458,6 +459,8 @@ let dataPathStep (dp : DataPath, code : CodeMemory<CondInstr * int>) =
             match instr with
             | IDP instr' ->
                 executeDP instr' dp'
+            | IMUL instr' ->
+                Multiply.executeMul instr' dp'
             | IMEM instr' ->
                 executeMem instr' dp' |> noFlagChange
             | IBRANCH instr' ->

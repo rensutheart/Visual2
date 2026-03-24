@@ -2,7 +2,7 @@
 
 A complete reference of all ARM assembly instructions and directives supported by the VisUAL2 simulator.
 
-> **Source files:** Instruction definitions live in `src/Emulator/` — specifically `DP.fs`, `Memory.fs`, `Branch.fs`, and `Misc.fs`.
+> **Source files:** Instruction definitions live in `src/Emulator/` — specifically `DP.fs`, `Multiply.fs`, `Memory.fs`, `Branch.fs`, and `Misc.fs`.
 
 ---
 
@@ -12,12 +12,13 @@ A complete reference of all ARM assembly instructions and directives supported b
 2. [Registers](#registers)
 3. [Data Processing Instructions](#data-processing-instructions)
 4. [Flexible Operand 2](#flexible-operand-2)
-5. [Memory Instructions — Single Register](#memory-instructions--single-register)
-6. [Memory Instructions — Multiple Registers](#memory-instructions--multiple-registers)
-7. [Branch Instructions](#branch-instructions)
-8. [Pseudo-Instructions & Directives](#pseudo-instructions--directives)
-9. [Expressions](#expressions)
-10. [Notable Limitations](#notable-limitations)
+5. [Multiply Instructions](#multiply-instructions)
+6. [Memory Instructions — Single Register](#memory-instructions--single-register)
+7. [Memory Instructions — Multiple Registers](#memory-instructions--multiple-registers)
+8. [Branch Instructions](#branch-instructions)
+9. [Pseudo-Instructions & Directives](#pseudo-instructions--directives)
+10. [Expressions](#expressions)
+11. [Notable Limitations](#notable-limitations)
 
 ---
 
@@ -145,6 +146,48 @@ The last operand of all data processing instructions uses the ARM "flexible oper
 **Immediate literal rules:** The value must be expressible as an 8-bit number rotated right by an even amount. For example, `#0xFF` (valid), `#0x3FC` (valid: 0xFF ROR 30), but `#0x101` (invalid: not representable). When a literal is invalid, the assembler automatically tries:
 - **Negated literal** (for ADD↔SUB, CMP↔CMN): e.g., `ADD R0, R1, #-1` becomes `SUB R0, R1, #1`
 - **Inverted literal** (for AND↔BIC, MOV↔MVN): e.g., `MOV R0, #0xFFFFFF00` becomes `MVN R0, #0xFF`
+
+---
+
+## Multiply Instructions
+
+> **Source file:** `src/Emulator/Multiply.fs`
+
+### 32-bit Multiply (`MUL{S}{cond} Rd, Rm, Rs`)
+
+| Mnemonic | Operation | Notes |
+|----------|-----------|-------|
+| `MUL` | Rd = Rm × Rs (low 32 bits) | Result truncated to 32 bits |
+
+### 32-bit Multiply-Accumulate (`MLA{S}{cond} Rd, Rm, Rs, Rn`)
+
+| Mnemonic | Operation | Notes |
+|----------|-----------|-------|
+| `MLA` | Rd = (Rm × Rs) + Rn (low 32 bits) | Result truncated to 32 bits |
+
+### 64-bit Long Multiply (`OP{S}{cond} RdLo, RdHi, Rm, Rs`)
+
+| Mnemonic | Operation | Signed? | Accumulate? |
+|----------|-----------|---------|-------------|
+| `UMULL` | RdHi:RdLo = Rm × Rs | Unsigned | No |
+| `UMLAL` | RdHi:RdLo += Rm × Rs | Unsigned | Yes |
+| `SMULL` | RdHi:RdLo = Rm × Rs | Signed | No |
+| `SMLAL` | RdHi:RdLo += Rm × Rs | Signed | Yes |
+
+### Flags
+
+With the `S` suffix:
+- **N** — Set if result bit 31 (32-bit) or bit 63 (64-bit) is set
+- **Z** — Set if result is zero (for 64-bit: both hi and lo are zero)
+- **C, V** — Preserved (not affected)
+
+Without the `S` suffix, flags are not modified.
+
+### Register Constraints
+
+- `PC` (`R15`) must not be used as any operand
+- **MUL/MLA:** `Rd` must differ from `Rm`
+- **Long multiplies:** `RdLo` must differ from `RdHi` and from `Rm`; `RdHi` must differ from `Rm`
 
 ---
 
@@ -351,7 +394,6 @@ The following ARM features are **not supported** in VisUAL2:
 
 | Category | Missing Instructions/Features |
 |----------|-------------------------------|
-| Multiply | `MUL`, `MLA`, `UMULL`, `UMLAL`, `SMULL`, `SMLAL` |
 | Swap | `SWP`, `SWPB` |
 | Software interrupt | `SWI` / `SVC` |
 | Coprocessor | `MCR`, `MRC`, `LDC`, `STC` |
@@ -370,6 +412,8 @@ Data Processing:   MOV  MVN  ADD  SUB  ADC  SBC  RSB  RSC
                    CMP  CMN  TST  TEQ
                    LSL  LSR  ASR  ROR  RRX
 
+Multiply:          MUL  MLA  UMULL  UMLAL  SMULL  SMLAL
+
 Memory (single):   LDR  LDRB  STR  STRB  LDR Rd,=val
                    LDRH  LDRSH  STRH  LDRSB
 
@@ -382,4 +426,4 @@ Branches:          B    BL   BX   BLX  END
 Directives:        DCD  DCB  FILL  EQU  ADR
 ```
 
-**Total:** 21 data processing + 9 memory (single) + 16 memory (multiple modes) + 2 stack (PUSH/POP) + 5 branch + 5 directives = **58 base mnemonics**, expanding to hundreds of valid opcode strings with condition codes and suffixes.
+**Total:** 21 data processing + 6 multiply + 9 memory (single) + 16 memory (multiple modes) + 2 stack (PUSH/POP) + 5 branch + 5 directives = **64 base mnemonics**, expanding to hundreds of valid opcode strings with condition codes and suffixes.

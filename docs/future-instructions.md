@@ -3,7 +3,7 @@
 This document describes what would be needed to add the following instruction groups to the simulator:
 
 1. [~~Half-word memory: LDRH, LDRSH, STRH, LDRSB~~](#1-half-word-memory-ldrh-ldrsh-strh-ldrsb) — **IMPLEMENTED**
-2. [Multiply: MUL, MLA, UMULL, UMLAL, SMULL, SMLAL](#2-multiply-mul-mla-umull-umlal-smull-smlal)
+2. [~~Multiply: MUL, MLA, UMULL, UMLAL, SMULL, SMLAL~~](#2-multiply-mul-mla-umull-umlal-smull-smlal) — **IMPLEMENTED**
 3. [~~Branch exchange: BX, BLX~~](#3-branch-exchange-bx-blx) — **IMPLEMENTED**
 4. [~~Stack shorthand: PUSH, POP~~](#4-stack-shorthand-push-pop) — **IMPLEMENTED** (commit f73a000)
 
@@ -159,7 +159,10 @@ The memory infrastructure already handles word and byte access. Half-word is a s
 
 ---
 
-## 2. Multiply: MUL, MLA, UMULL, UMLAL, SMULL, SMLAL
+## 2. Multiply: MUL, MLA, UMULL, UMLAL, SMULL, SMLAL — ✅ IMPLEMENTED
+
+> **Implemented in:** `src/Emulator/Multiply.fs` — commit with 50 tests / 91 assertions all passing.
+> See [arm-instructions.md](arm-instructions.md#multiply-instructions) for full usage reference.
 
 ### ARM Semantics
 

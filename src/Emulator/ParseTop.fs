@@ -17,6 +17,7 @@ module ParseTop
     type Instr =
         | IMEM of Memory.Instr
         | IDP of DP.Instr
+        | IMUL of Multiply.Instr
         | IMISC of Misc.Instr
         | IBRANCH of Branch.Instr
         | EMPTY
@@ -63,6 +64,7 @@ module ParseTop
         match ld with
         | Memory.IMatch pa -> copy IMEM pa
         | DP.IMatch pa -> copy IDP pa
+        | Multiply.IMatch pa -> copy IMUL pa
         | Misc.IMatch pa -> copy IMISC pa
         | Branch.IMatch pa -> copy IBRANCH pa
         | _ -> None
