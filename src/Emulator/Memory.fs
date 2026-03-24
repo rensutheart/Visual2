@@ -66,12 +66,26 @@ module Memory
         suff : MultSuffix
         }
 
+    /// Double-word load/store instruction. LDRD, STRD
+    /// op{cond} Rd, Rd2, [Rn {, #offset}]
+    [<Struct>]
+    type InstrMemDouble = {
+        LSType : LSType
+        Rd : RName     // first register (must be even)
+        Rd2 : RName    // second register (Rd + 1)
+        Rb : RName     // base register
+        MAddr : DataPath -> int32 -> int32
+        MemMode : MMode
+    }
+
     type Instr =
         | LDR of InstrMemSingle
         | STR of InstrMemSingle
         | LDM of InstrMemMult
         | STM of InstrMemMult
         | LDREQUAL of RName * uint32
+        | LDRDOUBLE of InstrMemDouble
+        | STRDOUBLE of InstrMemDouble
 
 
     let memSpecSingle = {
@@ -99,6 +113,12 @@ module Memory
         Suffixes = [ "H"; "SH"; "SB" ]
     }
 
+    let memSpecDouble = {
+        InstrC = MEM
+        Roots = [ "LDR"; "STR" ]
+        Suffixes = [ "D" ]
+    }
+
     let memTypeSingleMap =
         Map.ofList [
             "LDR", LDR;
@@ -115,7 +135,7 @@ module Memory
     /// map of all possible opcodes recognised
     let opCodes =
         let toArr = opCodeExpand >> Map.toArray
-        Array.collect toArr [| memSpecSingle; memSpecMultiple; memSpecStack; memSpecHalf |]
+        Array.collect toArr [| memSpecSingle; memSpecMultiple; memSpecStack; memSpecHalf; memSpecDouble |]
         |> Map.ofArray
 
 
@@ -428,21 +448,97 @@ module Memory
             copyParse ls (Result.map memTypeFn ops) pCond
             |> (fun pa -> { pa with PStall = match ops with | Ok o -> (max 1 o.rList.Length) + 1 | _ -> 0 })
 
+        /// parse LDRD/STRD: "Rd, Rd2, [Rn {, #offset}]{!}" or "Rd, Rd2, [Rn], #offset"
+        let parseDouble (lsType : LSType) pCond : Parse<Instr> =
+
+            let memTypeFn = match lsType with | LOAD -> LDRDOUBLE | STORE -> STRDOUBLE
+
+            let (|IMMEXPR|_|) txt =
+                match removeWs txt with
+                | REMOVEPREFIX "#" (Expr(ast, txt)) ->
+                    match eval ls.SymTab ast with
+                    | Ok uint32 -> Some(uint32, txt)
+                    | _ -> None
+                | _ -> None
+
+            let (|WRITEBACK|_|) (txt : string) =
+                match trim txt with
+                | "!" -> Some true
+                | "" -> Some false
+                | _ -> None
+
+            let (|DOFFSET|_|) (txt : string) =
+                match trim txt with
+                | "" -> Some(Ok(fun _ -> 0), "")
+                | REMOVEPREFIX "," (IMMEXPR(n, txt)) when int n >= -255 && int n <= 255 && int n % 4 = 0 ->
+                    Some(Ok(fun (_dp : DataPath) -> int n), txt)
+                | REMOVEPREFIX "," (IMMEXPR(n, txt)) when int n % 4 <> 0 ->
+                    Some(makeParseError "double-word offset divisible by 4" (sprintf "offset=%d" (int32 n)) "ea", txt)
+                | REMOVEPREFIX "," (IMMEXPR(n, txt)) ->
+                    Some(makeParseError "double-word offset in range -255..255" (sprintf "offset=%d" (int32 n)) "ea", txt)
+                | _ -> Some(makeParseError "valid offset for LDRD/STRD" txt "ea", txt)
+                |> Option.map (fun (r, txt) -> Result.map (fun fo dp rbv -> fo dp + rbv) r, txt)
+
+            // Parse: Rd, Rd2, [Rn {, #offset}]{!} or Rd, Rd2, [Rn], #offset
+            let ins =
+                match ls.Operands with
+                | REGMATCH(rd, (REMOVEPREFIX "," (REGMATCH(rd2, (REMOVEPREFIX "," txt))))) ->
+                    // Validate: Rd must be even, Rd2 must be Rd+1
+                    let rdNum = rd.RegNum
+                    let rd2Num = rd2.RegNum
+                    if rdNum % 2 <> 0 then
+                        makeParseError "even-numbered Rd for LDRD/STRD" (sprintf "R%d" rdNum) ""
+                    elif rd2Num <> rdNum + 1 then
+                        makeParseError (sprintf "Rd2 = R%d (Rd + 1)" (rdNum + 1)) (sprintf "R%d" rd2Num) ""
+                    elif rd = R14 then
+                        makeParseError "Rd pair not R14-R15 for LDRD/STRD" "R14" ""
+                    elif rd = R15 || rd2 = R15 then
+                        makeParseError "registers (not PC/R15)" "R15" ""
+                    else
+                        match PreIndex, PostIndex, txt with
+                        | indexType, _, BRACKETED '[' ']' (REGMATCH(rb, (DOFFSET(spf, ""))), WRITEBACK w)
+                        | _, indexType, BRACKETED '[' ']' ((REGMATCH(rb, ""), DOFFSET(spf, WRITEBACK w))) ->
+                            let mode =
+                                match w, indexType with
+                                | false, PreIndex -> Ok NoIndex
+                                | true, PostIndex -> makeParseError "Valid addressing mode" ("'!' is not valid in post-increment addressing") "ea"
+                                | _, it -> Ok it
+                            match mode, spf with
+                            | _, Error e -> Error e
+                            | Error e, _ -> Error e
+                            | Ok mode', Ok spf' ->
+                                Ok {
+                                    LSType = lsType
+                                    Rd = rd
+                                    Rd2 = rd2
+                                    Rb = rb
+                                    MAddr = spf'
+                                    MemMode = mode'
+                                }
+                        | _ -> makeParseError "LDRD/STRD Effective address" txt ""
+                | _ -> makeParseError "LDRD/STRD Rd, Rd2, [Rn {, #offset}]" ls.Operands ""
+
+            copyParse ls (Result.map memTypeFn ins) pCond
+            |> (fun pa -> { pa with PStall = match lsType with | LOAD -> 2 | STORE -> 1 })
+
         let parse' (_instrC, (root : string, suffix : string, pCond)) =
             let uRoot = root.ToUpper()
             let uSuffix = suffix.ToUpper()
             let singleSuffix = match uSuffix with | "" | "B" | "H" | "SH" | "SB" -> true | _ -> false
-            match singleSuffix, uRoot with
-            | true, "LDR" when String.exists ((=) '=') ls.Operands && uSuffix = ""
+            let doubleSuffix = uSuffix = "D"
+            match singleSuffix, doubleSuffix, uRoot with
+            | true, _, "LDR" when String.exists ((=) '=') ls.Operands && uSuffix = ""
                 -> parseLoad32 pCond
-            | true, "LDR" -> parseSingle LOAD uRoot uSuffix pCond
-            | true, "STR" when uSuffix = "SH" || uSuffix = "SB" ->
+            | true, _, "LDR" -> parseSingle LOAD uRoot uSuffix pCond
+            | true, _, "STR" when uSuffix = "SH" || uSuffix = "SB" ->
                 copyParse ls (makeParseError "valid instruction (STRSH/STRSB do not exist)" (sprintf "STR%s" uSuffix) "") pCond
-            | true, "STR" -> parseSingle STORE uRoot uSuffix pCond
-            | true, "PUSH" -> parsePushPop STM DB pCond
-            | true, "POP" -> parsePushPop LDM IA pCond
-            | false, "LDM" -> parseMult uRoot uSuffix pCond
-            | false, "STM" -> parseMult uRoot uSuffix pCond
+            | true, _, "STR" -> parseSingle STORE uRoot uSuffix pCond
+            | true, _, "PUSH" -> parsePushPop STM DB pCond
+            | true, _, "POP" -> parsePushPop LDM IA pCond
+            | _, true, "LDR" -> parseDouble LOAD pCond
+            | _, true, "STR" -> parseDouble STORE pCond
+            | _, false, "LDM" -> parseMult uRoot uSuffix pCond
+            | _, false, "STM" -> parseMult uRoot uSuffix pCond
             | _ -> failwithf "What? We appear to have an impossible memory root and suffix: %s %s" root suffix
 
         Map.tryFind (uppercase ls.OpCode) opCodes
@@ -558,6 +654,32 @@ module Memory
 
         ) List.map (fun el -> el |> uint32) lst, rDiff
 
+    let executeLDRDSTRD (ins : InstrMemDouble) (dp : DataPath) =
+        let addr = ins.MAddr dp (int32 dp.Regs.[ins.Rb]) |> uint32
+        let rbv = dp.Regs.[ins.Rb]
+        let ef =
+            match ins.MemMode with
+            | NoIndex | PreIndex -> uint32 addr
+            | PostIndex -> rbv
+        // Check word alignment
+        if ef % 4u <> 0u then
+            ``Run time error`` (ef, (sprintf "double-word address 0x%x must be word-aligned" ef)) |> Error
+        else
+            let dp' =
+                dp
+                |> updateReg (uint32 (if ins.MemMode = NoIndex then (match ins.Rb with | R15 -> rbv - 4u | _ -> rbv) else addr >>> 0)) ins.Rb
+            match ins.LSType with
+            | LOAD ->
+                getDataMemWord ef dp'
+                |> Result.bind (fun w1 ->
+                    getDataMemWord (ef + 4u) dp'
+                    |> Result.map (fun w2 ->
+                        dp' |> updateReg w1 ins.Rd |> updateReg w2 ins.Rd2))
+            | STORE ->
+                updateMemData (Dat dp.Regs.[ins.Rd]) ef dp'
+                |> Result.bind (fun dp'' ->
+                    updateMemData (Dat dp.Regs.[ins.Rd2]) (ef + 4u) dp'')
+
     let executeMem instr (cpuData : DataPath) =
         /// get multiple memory
         let rec getMemMult addrList contentsLst cpuData =
@@ -590,3 +712,4 @@ module Memory
         | STM operands ->
             executeSTM operands.WB operands.suff operands.Rn operands.rList cpuData
         | LDREQUAL(rn, loadVal) -> setReg rn loadVal cpuData |> Ok
+        | LDRDOUBLE ins | STRDOUBLE ins -> executeLDRDSTRD ins cpuData

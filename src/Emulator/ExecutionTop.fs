@@ -461,6 +461,8 @@ let dataPathStep (dp : DataPath, code : CodeMemory<CondInstr * int>) =
                 executeDP instr' dp'
             | IMUL instr' ->
                 Multiply.executeMul instr' dp'
+            | ISAT instr' ->
+                Saturate.executeSat instr' dp' |> noFlagChange
             | IMEM instr' ->
                 executeMem instr' dp' |> noFlagChange
             | IBRANCH instr' ->

@@ -191,6 +191,34 @@ Without the `S` suffix, flags are not modified.
 
 ---
 
+## Saturating Arithmetic Instructions
+
+> **Source file:** `src/Emulator/Saturate.fs`
+
+### QADD / QSUB — Saturating Add and Subtract
+
+**Syntax:** `OP{cond} Rd, Rm, Rn`
+
+| Mnemonic | Operation | Notes |
+|----------|-----------|-------|
+| `QADD` | Rd = SAT(Rm + Rn) | Signed saturating add |
+| `QSUB` | Rd = SAT(Rm - Rn) | Signed saturating subtract |
+
+Saturation clamps the result to the signed 32-bit range:
+- If the result exceeds +2,147,483,647 (`0x7FFFFFFF`), it is clamped to `0x7FFFFFFF`
+- If the result is below −2,147,483,648 (`0x80000000`), it is clamped to `0x80000000`
+
+### Flags
+
+QADD and QSUB do **not** modify N, Z, C, or V flags. In real ARM hardware they set the Q (sticky saturation) flag, which is not modelled in VisUAL2.
+
+### Register Constraints
+
+- `PC` (`R15`) must not be used as `Rd`, `Rm`, or `Rn`
+- No `S` suffix is supported
+
+---
+
 ## Memory Instructions — Single Register
 
 ### LDR / STR — Word and Byte Load/Store
@@ -245,6 +273,34 @@ This is useful when the constant is not a valid immediate for `MOV`. Internally 
 **Alignment:** Half-word instructions (`LDRH`, `LDRSH`, `STRH`) require the effective address to be 2-byte aligned (even address). Misaligned access produces a runtime error.
 
 **Invalid combinations:** `STRSH` and `STRSB` do not exist — they are rejected at parse time.
+
+### LDRD / STRD — Double-Word Load/Store
+
+> **Source file:** `src/Emulator/Memory.fs`
+
+**Syntax:** `OP{cond} Rd, Rd2, <address>`
+
+| Mnemonic | Operation | Transfer Size |
+|----------|-----------|---------------|
+| `LDRD` | Rd ← Memory[addr], Rd2 ← Memory[addr+4] | Two 32-bit words |
+| `STRD` | Memory[addr] ← Rd, Memory[addr+4] ← Rd2 | Two 32-bit words |
+
+### Addressing Modes
+
+| Mode | Syntax | Behaviour |
+|------|--------|-----------|
+| Offset | `[Rn]` or `[Rn, #offset]` | Address = Rn + offset; Rn unchanged |
+| Pre-indexed | `[Rn, #offset]!` | Address = Rn + offset; Rn updated to address |
+| Post-indexed | `[Rn], #offset` | Address = Rn; Rn updated to Rn + offset |
+
+### Register and Offset Constraints
+
+- `Rd` must be an **even-numbered** register (R0, R2, R4, R6, R8, R10, R12)
+- `Rd2` must be `Rd + 1` (the next register)
+- The pair `R14`–`R15` is not allowed (`Rd` cannot be `R14`)
+- `PC` (`R15`) cannot be used as `Rd` or `Rd2`
+- Immediate offset: ±255, must be **divisible by 4**
+- Effective address must be **word-aligned** (divisible by 4) — misaligned access produces a runtime error
 
 ---
 

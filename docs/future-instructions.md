@@ -6,6 +6,8 @@ This document describes what would be needed to add the following instruction gr
 2. [~~Multiply: MUL, MLA, UMULL, UMLAL, SMULL, SMLAL~~](#2-multiply-mul-mla-umull-umlal-smull-smlal) — **IMPLEMENTED**
 3. [~~Branch exchange: BX, BLX~~](#3-branch-exchange-bx-blx) — **IMPLEMENTED**
 4. [~~Stack shorthand: PUSH, POP~~](#4-stack-shorthand-push-pop) — **IMPLEMENTED** (commit f73a000)
+5. ~~Saturating arithmetic: QADD, QSUB~~ — **IMPLEMENTED**
+6. ~~Double-word memory: LDRD, STRD~~ — **IMPLEMENTED**
 
 Each section covers the ARM semantics, the files to modify, types to add, and specific integration points.
 

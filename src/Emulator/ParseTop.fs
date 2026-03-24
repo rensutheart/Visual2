@@ -18,6 +18,7 @@ module ParseTop
         | IMEM of Memory.Instr
         | IDP of DP.Instr
         | IMUL of Multiply.Instr
+        | ISAT of Saturate.Instr
         | IMISC of Misc.Instr
         | IBRANCH of Branch.Instr
         | EMPTY
@@ -65,6 +66,7 @@ module ParseTop
         | Memory.IMatch pa -> copy IMEM pa
         | DP.IMatch pa -> copy IDP pa
         | Multiply.IMatch pa -> copy IMUL pa
+        | Saturate.IMatch pa -> copy ISAT pa
         | Misc.IMatch pa -> copy IMISC pa
         | Branch.IMatch pa -> copy IBRANCH pa
         | _ -> None

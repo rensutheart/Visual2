@@ -13,6 +13,7 @@
     <Compile Include="Memory.fs" />
     <Compile Include="DP.fs" />
     <Compile Include="Multiply.fs" />
+    <Compile Include="Saturate.fs" />
     <Compile Include="Branch.fs" />
     <Compile Include="Misc.fs" />
     <Compile Include="ParseTop.fs" />
