@@ -84,6 +84,12 @@ module Memory
     }
 
 
+    let memSpecStack = {
+        InstrC = MEM
+        Roots = [ "PUSH"; "POP" ]
+        Suffixes = [ "" ]
+    }
+
     let memTypeSingleMap =
         Map.ofList [
             "LDR", LDR;
@@ -100,7 +106,7 @@ module Memory
     /// map of all possible opcodes recognised
     let opCodes =
         let toArr = opCodeExpand >> Map.toArray
-        Array.collect toArr [| memSpecSingle; memSpecMultiple |]
+        Array.collect toArr [| memSpecSingle; memSpecMultiple; memSpecStack |]
         |> Map.ofArray
 
 
@@ -355,6 +361,60 @@ module Memory
             |> (fun pa -> { pa with PStall = let rootStall = match root with | "LDM" -> 1 | _ -> 0
                                              match ops with | Ok o -> (max 1 o.rList.Length) + rootStall | _ -> 0 })
 
+        /// parse for PUSH, POP (desugared to STMDB SP! / LDMIA SP!)
+        let parsePushPop memTypeFn (suffix : MultSuffix) pCond : Parse<Instr> =
+
+            let (|RegListExpand|_|) (str : string) =
+                match str.ToUpper() with
+                | ParseRegex2 "(R[0-9]+|PC|LR|SP)-(R[0-9]+|PC|LR|SP)" (low, high) when regNames.ContainsKey low && regNames.ContainsKey high ->
+                    (regNums.[regNames.[low]], regNums.[regNames.[high]]) |> Some
+                | _ -> None
+
+            let (|RegListMatch|_|) (str : string) =
+                let optionNumToRegList n =
+                    match n with
+                    | RegListExpand(low, high) ->
+                        let fullRegList = List.map (fun r -> r |> makeRegFn) [ int low..int high ]
+                        fullRegList |> Some
+                    | _ -> None
+                let optionMakeList n = [ n ] |> Some
+                match str.ToUpper() with
+                | ParseRegex "(([rR][0-9]+|PC|LR|SP)-([rR][0-9]+|PC|LR|SP))" listReg -> optionNumToRegList listReg
+                | ParseRegex "([rR][0-9]+|PC|LR|SP)!" bangReg -> bangReg |> optionMakeList
+                | ParseRegex "([rR][0-9]+|PC|LR|SP)" reg -> reg |> optionMakeList
+                | _ -> None
+
+            let ops =
+                match ls.Operands with
+                | BRACKETED '{' '}' (rl, TRIM "") ->
+                    let regList = splitAny rl ','
+                    let matcher = function
+                        | RegListMatch x -> x
+                        | x -> [ x ]
+                    let checker = function
+                        | RegCheck x -> x
+                        | _ -> failwith alwaysMatchesFM
+                    let checkedRegs =
+                        regList
+                        |> List.collect matcher
+                        |> List.map checker
+                        |> condenseResultList (id)
+                        |> Result.bind (fun lst ->
+                            let makeListError wanted = makeParseError wanted (String.concat "," regList) ""
+                            let lst' = List.distinct lst
+                            if lst.Length <> lst'.Length
+                            then makeListError "Register list without duplicates"
+                            elif List.contains R13 lst then makeListError "Register list not containing SP"
+                            else Ok lst')
+                        |> Result.map (List.distinct >> List.sortBy (fun rn -> rn.RegNum))
+                    checkedRegs
+                    |> Result.map (fun rLst -> consMemMult true R13 rLst suffix)
+                | _ ->
+                    makeParseError "register list in braces, e.g. {R0-R3, LR}" ls.Operands ""
+
+            copyParse ls (Result.map memTypeFn ops) pCond
+            |> (fun pa -> { pa with PStall = match ops with | Ok o -> (max 1 o.rList.Length) + 1 | _ -> 0 })
+
         let parse' (_instrC, (root : string, suffix : string, pCond)) =
             let uRoot = root.ToUpper()
             let uSuffix = suffix.ToUpper()
@@ -364,6 +424,8 @@ module Memory
                 -> parseLoad32 pCond
             | true, "LDR" -> parseSingle LOAD uRoot uSuffix pCond
             | true, "STR" -> parseSingle STORE uRoot uSuffix pCond
+            | true, "PUSH" -> parsePushPop STM DB pCond
+            | true, "POP" -> parsePushPop LDM IA pCond
             | false, "LDM" -> parseMult uRoot uSuffix pCond
             | false, "STM" -> parseMult uRoot uSuffix pCond
             | _ -> failwithf "What? We appear to have an impossible memory root and suffix: %s %s" root suffix
