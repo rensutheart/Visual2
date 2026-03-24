@@ -128,7 +128,7 @@ module Misc
             let msg = "Invalid operands: '" + ls.Operands + "'. DCB must have a number of parameters divisible by 4"
             makeInstructionError msg
             |> makeDataDirective (Some 0u)
-        | "FILL", RESOLVEALL [ op ] -> makeFILL [ op, 0u ]
+        | "FILL", RESOLVEALL ops -> makeFILL ops
         | "FILL", _ -> makeDataDirective None <| makeInstructionError ("Invalid operands for FILL: unresolved symbols")
         | "ADR", RegMatch(Ok rn) :: [ PARSE(Ok addr) ] ->
             match checkAddrOffset (int addr - int la) with
