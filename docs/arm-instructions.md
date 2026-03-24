@@ -219,11 +219,25 @@ These are equivalent to the addressing modes above but named for stack usage:
 | `ED` | Empty Descending | `LDMIB` / `STMIB` | |
 | `EA` | Empty Ascending | `LDMIA` / `STMIA` | |
 
-> **Note:** `PUSH` and `POP` are not supported as standalone instructions. Use `STMFD SP!, {regs}` and `LDMFD SP!, {regs}` instead (or equivalently `STMDB`/`LDMIA`).
+### PUSH / POP — Stack Shorthand
+
+**Syntax:** `PUSH{cond} {reglist}` / `POP{cond} {reglist}`
+
+| Mnemonic | Equivalent | Operation |
+|----------|------------|----------|
+| `PUSH` | `STMDB SP!, {reglist}` | Decrement SP, store registers (lowest-numbered at lowest address) |
+| `POP` | `LDMIA SP!, {reglist}` | Load registers, increment SP |
+
+- Supports all 16 condition codes
+- Register list uses same syntax as LDM/STM: `{R0, R2-R5, LR}`
+- SP (R13) must not appear in the register list
+- These are pure parse-time aliases — no new execution logic
 
 ---
 
 ## Branch Instructions
+
+### B / BL — Branch and Branch with Link
 
 **Syntax:** `OP{cond} label`
 
@@ -236,7 +250,20 @@ These are equivalent to the addressing modes above but named for stack usage:
 - `B` and `BL` support all 16 condition codes
 - `END` does not support condition codes or operands
 - The label must be a valid expression that resolves to an instruction address
-- There is no `BX` (branch and exchange) instruction
+
+### BX / BLX — Branch (with Link) and Exchange
+
+**Syntax:** `OP{cond} Rm`
+
+| Mnemonic | Operation | Cycles |
+|----------|-----------|--------|
+| `BX` | Branch to address in Rm (PC = Rm with bit 0 masked off) | 2 |
+| `BLX` | Branch with link to address in Rm (LR = next instruction, PC = Rm) | 2 |
+
+- Support all 16 condition codes
+- Operand must be a register (not `PC`)
+- Bit 0 of the register value is masked off (Thumb bit ignored — Thumb mode not supported)
+- Typically used with `BX LR` to return from subroutines called with `BL` or `BLX`
 
 ---
 
@@ -305,8 +332,6 @@ The following ARM features are **not supported** in VisUAL2:
 |----------|-------------------------------|
 | Half-word memory | `LDRH`, `LDRSH`, `STRH`, `LDRSB` |
 | Multiply | `MUL`, `MLA`, `UMULL`, `UMLAL`, `SMULL`, `SMLAL` |
-| Branch exchange | `BX`, `BLX` |
-| Stack shorthand | `PUSH`, `POP` |
 | Swap | `SWP`, `SWPB` |
 | Software interrupt | `SWI` / `SVC` |
 | Coprocessor | `MCR`, `MRC`, `LDC`, `STC` |
@@ -330,10 +355,11 @@ Memory (single):   LDR  LDRB  STR  STRB  LDR Rd,=val
 
 Memory (multiple): LDM{IA|IB|DA|DB|FD|ED|FA|EA}
                    STM{IA|IB|DA|DB|FD|ED|FA|EA}
+                   PUSH  POP
 
-Branches:          B    BL   END
+Branches:          B    BL   BX   BLX  END
 
 Directives:        DCD  DCB  FILL  EQU  ADR
 ```
 
-**Total:** 21 data processing + 5 memory (single) + 16 memory (multiple modes) + 3 branch + 5 directives = **50 base mnemonics**, expanding to hundreds of valid opcode strings with condition codes and suffixes.
+**Total:** 21 data processing + 5 memory (single) + 16 memory (multiple modes) + 2 stack (PUSH/POP) + 5 branch + 5 directives = **54 base mnemonics**, expanding to hundreds of valid opcode strings with condition codes and suffixes.

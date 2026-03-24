@@ -4,8 +4,8 @@ This document describes what would be needed to add the following instruction gr
 
 1. [Half-word memory: LDRH, LDRSH, STRH, LDRSB](#1-half-word-memory-ldrh-ldrsh-strh-ldrsb)
 2. [Multiply: MUL, MLA, UMULL, UMLAL, SMULL, SMLAL](#2-multiply-mul-mla-umull-umlal-smull-smlal)
-3. [Branch exchange: BX, BLX](#3-branch-exchange-bx-blx)
-4. [Stack shorthand: PUSH, POP](#4-stack-shorthand-push-pop)
+3. [~~Branch exchange: BX, BLX~~](#3-branch-exchange-bx-blx) — **IMPLEMENTED**
+4. [~~Stack shorthand: PUSH, POP~~](#4-stack-shorthand-push-pop) — **IMPLEMENTED** (commit f73a000)
 
 Each section covers the ARM semantics, the files to modify, types to add, and specific integration points.
 
@@ -507,17 +507,17 @@ PUSH and POP are syntactic sugar over LDM/STM which already work correctly. The 
 
 ## Summary
 
-| Feature | Difficulty | New Files | Files Modified | New DU Cases |
+| Feature | Difficulty | New Files | Files Modified | New DU Cases | Status |
 |---------|-----------|-----------|----------------|--------------|
-| Half-word memory | Low–Medium | None | Memory.fs | `MHalf`, `MSignedHalf`, `MSignedByte` in `MSize` |
-| Multiply | Medium | **Multiply.fs** | ParseTop.fs, ExecutionTop.fs, Emulator.fsproj | `IMUL` in `ParseTop.Instr` |
-| Branch exchange | Low | None | Branch.fs | `BX`, `BLX` in `Branch.Instr` |
-| Stack shorthand | Low | None | Memory.fs | None (desugars to existing LDM/STM) |
+| Half-word memory | Low–Medium | None | Memory.fs | `MHalf`, `MSignedHalf`, `MSignedByte` in `MSize` | |
+| Multiply | Medium | **Multiply.fs** | ParseTop.fs, ExecutionTop.fs, Emulator.fsproj | `IMUL` in `ParseTop.Instr` | |
+| Branch exchange | ~~Low~~ | None | Branch.fs | `BX`, `BLX` in `Branch.Instr` | **IMPLEMENTED** |
+| Stack shorthand | ~~Low~~ | None | Memory.fs | None (desugars to existing LDM/STM) | **IMPLEMENTED** |
 
 ### Recommended Implementation Order
 
-1. **PUSH / POP** — Trivial alias, instant value for students, no new types
-2. **BX / BLX** — Small, self-contained, two new DU cases
+1. ~~**PUSH / POP**~~ — **Done.** Trivial alias, instant value for students, no new types
+2. ~~**BX / BLX**~~ — **Done.** Small, self-contained, two new DU cases
 3. **Half-word memory** — Extends existing pattern, moderate parsing work
 4. **Multiply** — Most involved: new module, 64-bit arithmetic, new dispatch path
 

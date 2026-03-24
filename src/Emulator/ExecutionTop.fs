@@ -508,7 +508,7 @@ let asmStep (numSteps : int64) (ri : RunInfo) =
                 
             let opc' = opc.ToUpper()
             
-            if opc'.Length <> 3 && String.startsWith "BL" opc' then
+            if (opc'.Length <> 3 && String.startsWith "BL" opc') || opc' = "BLX" then
                 if ri.BreakCond = ToSubroutine && stepsDone > ri.StepsDone then
                     state <- PSBreak
                     running <- false
