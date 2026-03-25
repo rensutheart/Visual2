@@ -1936,9 +1936,25 @@ amdRequire(["vs/editor/editor.main"], function () {
     ],
 
     registers: [
-      "R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7",
-      "R8", "R9", "R10", "R11", "R12", "R13", "R14", "R15",
-      "SP", "LR", "PC",
+      "R0",
+      "R1",
+      "R2",
+      "R3",
+      "R4",
+      "R5",
+      "R6",
+      "R7",
+      "R8",
+      "R9",
+      "R10",
+      "R11",
+      "R12",
+      "R13",
+      "R14",
+      "R15",
+      "SP",
+      "LR",
+      "PC",
     ],
 
     // we include these common regular expressions
@@ -1966,6 +1982,13 @@ amdRequire(["vs/editor/editor.main"], function () {
         // whitespace
         { include: "@whitespace" },
 
+        // ARM comments (;) and GNU-style comments (// and /* */)
+        [/;(.*)/, "comment"],
+        [/\/\/(.*)/, "comment"],
+        [/\/\*/, "comment", "@blockComment"],
+        [/>>;(.*)/, "comment.testpass"],
+        [/>>-(.*)/, "comment.testerror"],
+
         // delimiters and operators
         [/[{}()\[\]]/, "@brackets"],
         //[/[<>](?!@symbols)/, '@brackets'],
@@ -1981,7 +2004,10 @@ amdRequire(["vs/editor/editor.main"], function () {
 
         // numbers
 
-        [/(#)(-?0[xX][0-9a-fA-F][0-9a-fA-F_]*)/, ["number.hash.prefix", "number.hash.hex"]],
+        [
+          /(#)(-?0[xX][0-9a-fA-F][0-9a-fA-F_]*)/,
+          ["number.hash.prefix", "number.hash.hex"],
+        ],
         [/(#)(-?0[bB][0-1][01_]*)/, ["number.hash.prefix", "number.hash.bin"]],
         [/(#)(-?\d[\d_]*)/, ["number.hash.prefix", "number.hash"]],
         [/#/, "number.hash.prefix"],
@@ -2001,10 +2027,12 @@ amdRequire(["vs/editor/editor.main"], function () {
         [/(')(@escapes)(')/, ["string", "string.escape", "string"]],
         [/'/, "string.invalid"],
 
-        // ARM comments
-        [/;(.*)/, "comment"],
-        [/>>;(.*)/, "comment.testpass"],
-        [/>>-(.*)/, "comment.testerror"],
+      ],
+
+      blockComment: [
+        [/[^\/*]+/, "comment"],
+        [/\*\//, "comment", "@pop"],
+        [/[\/*]/, "comment"],
       ],
 
       string: [
@@ -2014,11 +2042,7 @@ amdRequire(["vs/editor/editor.main"], function () {
         [/"/, { token: "string.quote", bracket: "@close", next: "@pop" }],
       ],
 
-      whitespace: [
-        [/[ \t\r\n]+/, "white"],
-        //        [/\/\*/, 'comment', '@comment'],
-        //        [/\/\/.*$/, 'comment'],
-      ],
+      whitespace: [[/[ \t\r\n]+/, "white"]],
     },
   });
 
@@ -2069,8 +2093,8 @@ amdRequire(["vs/editor/editor.main"], function () {
       "editor.foreground": "#E5E7E8",
       "editor.background": "#272822",
       "editorCursor.foreground": "#F8F8F0",
-      "editor.lineHighlightBackground": "#3E3D32",
-      "editorLineNumber.foreground": "#75715E",
+      "editor.lineHighlightBackground": "#535353",
+      "editorLineNumber.foreground": "#A0A19A",
       "editor.selectionBackground": "#49483E",
       "editor.inactiveSelectionBackground": "#3E3D32",
       "editor.findMatchBackground": "#75715E",

@@ -115,7 +115,22 @@ module ParseTop
             | _ -> None
 
         /// remove comments from string
+        /// supports ; (ARM), // (GNU), and inline /* */ comment styles
         let removeComment (txt : string) =
+            // Strip inline /* */ block comments (on same line)
+            let rec stripInline (s : string) =
+                match s.IndexOf("/*") with
+                | -1 -> s
+                | i ->
+                    match s.IndexOf("*/", i + 2) with
+                    | -1 -> s.[0..i-1]
+                    | j -> stripInline (s.[0..i-1] + s.[j+2..])
+            let txt = stripInline txt
+            // Strip // line comments
+            let txt =
+                match txt.IndexOf("//") with
+                | -1 -> txt
+                | i -> txt.[0..i-1]
             txt.Split ';'
             |> function
                 | [| x |] -> x

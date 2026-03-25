@@ -332,6 +332,28 @@ let addTermination (lim : LoadImage) =
     | _ -> loadLine lim ("END", -1) // used if no line for END
 
 /// loadProgram creates a new loadImage from the symbol table in the 
+/// Strip /* */ block comments from lines, replacing commented content with
+/// empty strings to preserve line numbering.
+let stripBlockComments (lines : string list) =
+    let folder (inBlock, acc) (line : string) =
+        if inBlock then
+            match line.IndexOf("*/") with
+            | -1 -> (true, "" :: acc)
+            | i -> (false, "" :: acc)  // blank entire closing line
+        else
+            match line.IndexOf("/*") with
+            | -1 -> (false, line :: acc)
+            | i ->
+                let before = line.[0..(i - 1)]
+                let after = line.[(i + 2)..]
+                match after.IndexOf("*/") with
+                | -1 -> (true, before :: acc)
+                | j -> (false, (before + after.[(j + 2)..]) :: acc)
+    lines
+    |> List.fold folder (false, [])
+    |> snd
+    |> List.rev
+
 /// old loadImage and the pogram text in lines.
 /// Multiple loadProgram calls are made by reLoadProgram.
 /// each time loadProgram is called the initial symbol table contains
@@ -347,7 +369,8 @@ let loadProgram (lines : string list) (lim : LoadImage) =
     //printfn "POSI= %A" lim.LoadP
     let setDStart lim = { lim with LoadP = { lim.LoadP with DStart = roundUpHBound lim.LoadP.PosI } }
     let initLim = initLoadImage (setDStart lim).LoadP.DStart lim.SymInf.SymTab
-    List.fold loadLine initLim (lines |> List.indexed |> List.map (fun (i, s) -> s, i + 1))
+    let strippedLines = stripBlockComments lines
+    List.fold loadLine initLim (strippedLines |> List.indexed |> List.map (fun (i, s) -> s, i + 1))
     |> addTermination
 
 /// Returns the program in lines with nice uniform indentation

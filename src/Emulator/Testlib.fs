@@ -64,9 +64,13 @@ let parseTbLine lNum (lin : string) =
         | RegMatch(Ok rn) :: UPPER "PTR" :: RESOLVE lits -> (TbRegPointsTo(lNum, rn, 0u, lits)) |> Some
         | _ -> None
     let commentStrippedLine =
-        match String.split [| ';' |] lin |> Array.toList with
-        | [] -> ""
-        | lin :: _ -> lin.Trim()
+        let stripLineComment (s : string) =
+            // Strip // comments first, then ; comments
+            let s = match s.IndexOf("//") with | -1 -> s | i -> s.[0..i-1]
+            match String.split [| ';' |] s |> Array.toList with
+            | [] -> ""
+            | lin :: _ -> lin.Trim()
+        stripLineComment lin
     match commentStrippedLine |> String.splitOnWhitespace |> Array.toList with
     | [ "" ] | [] -> []
     | UPPER "IN" :: Defs tbSpec -> [ Ok(TbIn, tbSpec) ]

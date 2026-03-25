@@ -22,7 +22,7 @@ open EEExtensions
 //                                  App Version
 // **********************************************************************************
 
-let appVersion = "2.0.0-SU"
+let appVersion = "2.0.1-SU"
 let baseVersion = "1.06.10"  // Original VisUAL2 version this fork is based on
 
 // **********************************************************************************
@@ -436,6 +436,8 @@ let getJSONSettings() =
     | false ->
         try
             let vs = (Fable.Import.JS.JSON.parse json) :?> VSettings
+            // Migrate old default theme to new default
+            let vs = if vs.EditorTheme = "solarised-dark" then { vs with EditorTheme = "visual-classic" } else vs
             vs
         with
         | e ->
