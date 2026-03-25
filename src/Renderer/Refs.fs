@@ -355,7 +355,7 @@ let settings : obj = electron.remote.require "electron-settings"
 let mutable vSettings = {
     EditorFontSize = "16"
     SimulatorMaxSteps = "20000"
-    EditorTheme = "solarised-dark"
+    EditorTheme = "visual-classic"
     EditorWordWrap = "off"
     EditorRenderWhitespace = "none"
     CurrentFilePath = Fable.Import.Node.Exports.os.homedir()
@@ -364,6 +364,7 @@ let mutable vSettings = {
     }
 
 let themes = [
+                "visual-classic", "VisUAL Classic";
                 "one-dark-pro", "One Dark Pro";
                 "one-light-pro", "One Light Pro";
                 "solarised-dark", "Solarised Dark";

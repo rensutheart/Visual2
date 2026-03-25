@@ -1935,6 +1935,12 @@ amdRequire(["vs/editor/editor.main"], function () {
       "STRDCS",
     ],
 
+    registers: [
+      "R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7",
+      "R8", "R9", "R10", "R11", "R12", "R13", "R14", "R15",
+      "SP", "LR", "PC",
+    ],
+
     // we include these common regular expressions
     symbols: /[=!~?:&|+\-*\/\^%]+/,
 
@@ -1951,6 +1957,7 @@ amdRequire(["vs/editor/editor.main"], function () {
           {
             cases: {
               "@keywords": "keyword",
+              "@registers": "register",
               "@default": "identifier",
             },
           },
@@ -1974,9 +1981,10 @@ amdRequire(["vs/editor/editor.main"], function () {
 
         // numbers
 
-        [/#-?0[xX][0-9a-fA-F][0-9a-fA-F_]*/, "number.hash.hex"],
-        [/#-?0[bB][0-1][01_]*/, "number.hash.bin"],
-        [/#-?\d[\d_]*/, "number.hash"],
+        [/(#)(-?0[xX][0-9a-fA-F][0-9a-fA-F_]*)/, ["number.hash.prefix", "number.hash.hex"]],
+        [/(#)(-?0[bB][0-1][01_]*)/, ["number.hash.prefix", "number.hash.bin"]],
+        [/(#)(-?\d[\d_]*)/, ["number.hash.prefix", "number.hash"]],
+        [/#/, "number.hash.prefix"],
         [/-?0[xX][0-9a-fA-F][0-9a-fA-F_]*/, "number.bare.hex"],
         [/-?0[bB][0-1][01_]*/, "number.bare.bin"],
         [/-?\d[\d_]*/, "number.bare"],
@@ -2036,6 +2044,39 @@ amdRequire(["vs/editor/editor.main"], function () {
   var blue = "#268bd2";
   var cyan = "#2aa198";
   var green = "#859900";
+
+  monaco.editor.defineTheme("visual-classic", {
+    base: "vs-dark",
+    inherit: true,
+    rules: [
+      { token: "identifier", foreground: cs("#7DD6C1") },
+      { token: "keyword", foreground: cs("#A4D078") },
+      { token: "register", foreground: cs("#BAAEC8") },
+      { token: "number.hash.prefix", foreground: cs("#ECE7C1") },
+      { token: "number.hash", foreground: cs("#FFD53F") },
+      { token: "number.hash.hex", foreground: cs("#FFD53F") },
+      { token: "number.hash.bin", foreground: cs("#FFD53F") },
+      { token: "number.bare", foreground: cs("#FFD53F") },
+      { token: "number.bare.hex", foreground: cs("#FFD53F") },
+      { token: "number.bare.bin", foreground: cs("#FFD53F") },
+      { token: "comment", foreground: cs("#7D8A8D") },
+      { token: "comment.testerror", foreground: cs(red) },
+      { token: "delimiter", foreground: cs("#E5E7E8") },
+      { token: "symbol.operator", foreground: cs("#E5E7E8") },
+      { token: "string", foreground: cs("#FFD53F") },
+    ],
+    colors: {
+      "editor.foreground": "#E5E7E8",
+      "editor.background": "#272822",
+      "editorCursor.foreground": "#F8F8F0",
+      "editor.lineHighlightBackground": "#3E3D32",
+      "editorLineNumber.foreground": "#75715E",
+      "editor.selectionBackground": "#49483E",
+      "editor.inactiveSelectionBackground": "#3E3D32",
+      "editor.findMatchBackground": "#75715E",
+      "editor.findMatchHighlightBackground": "#3E3D32",
+    },
+  });
 
   monaco.editor.defineTheme("one-light-pro", {
     base: "vs",
