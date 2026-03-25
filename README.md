@@ -155,11 +155,90 @@ See [docs/display-mode.md](docs/display-mode.md) for full details, examples, and
 
 ## Building from Source (For Developers)
 
-If you want to modify VisUAL2-SU or build it yourself, see the [original project wiki](https://github.com/ImperialCollegeLondon/Visual2/wiki) for background. The build requires:
+If you want to modify VisUAL2-SU or build it yourself, see the [original project wiki](https://github.com/ImperialCollegeLondon/Visual2/wiki) for background.
 
-- [Node.js](https://nodejs.org/) and [Yarn](https://yarnpkg.com/)
-- [.NET Core SDK 2.1](https://dotnet.microsoft.com/download/dotnet/2.1)
-- On macOS/Linux: [Mono](http://www.mono-project.com/download/stable/)
+### Prerequisites
+
+- **Node.js 16** (later versions are incompatible with webpack 3 / Electron 2) — install via [nvm](https://github.com/nvm-sh/nvm)
+- [Yarn](https://yarnpkg.com/) (v1 / Classic)
+- [.NET Core SDK 2.1](https://dotnet.microsoft.com/download/dotnet/2.1) — required by the Fable 2.x F#-to-JS compiler
+- On macOS/Linux: [Mono](http://www.mono-project.com/download/stable/) (for Paket package manager)
+
+### macOS (Apple Silicon / ARM64)
+
+.NET Core 2.1 and Electron 2.0 do **not** have native ARM64 builds, so on Apple Silicon Macs (M1/M2/M3/M4) everything must run under **Rosetta 2** (x86_64 emulation).
+
+#### 1. Install Node.js 16 via nvm
+
+```bash
+# Install nvm if not already installed (see https://github.com/nvm-sh/nvm)
+nvm install 16
+nvm use 16
+```
+
+#### 2. Install .NET Core 2.1 SDK (x64, via Rosetta)
+
+The official .NET install script can fetch the x64 SDK:
+
+```bash
+curl -sSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
+chmod +x /tmp/dotnet-install.sh
+arch -x86_64 /tmp/dotnet-install.sh --channel 2.1 --install-dir $HOME/.dotnet-x64
+```
+
+This installs the x64 .NET Core 2.1 SDK to `~/.dotnet-x64/`. Verify with:
+
+```bash
+arch -x86_64 $HOME/.dotnet-x64/dotnet --version   # should print 2.1.818 or similar
+```
+
+#### 3. Install dependencies
+
+```bash
+yarn install
+```
+
+> The `fsevents` optional dependency may show build errors on ARM64 — this is harmless and can be ignored.
+
+#### 4. Install Electron x64 binary
+
+Electron 2.0.8 has no ARM64 macOS build. Force the x64 download:
+
+```bash
+npm_config_arch=x64 electron_config_arch=x64 node node_modules/electron/install.js
+```
+
+#### 5. Restore .NET projects
+
+```bash
+arch -x86_64 $HOME/.dotnet-x64/dotnet restore src/Main/Main.fsproj
+arch -x86_64 $HOME/.dotnet-x64/dotnet restore src/Renderer/Renderer.fsproj
+arch -x86_64 $HOME/.dotnet-x64/dotnet restore src/Emulator/Emulator.fsproj
+```
+
+#### 6. Build
+
+From the project root:
+
+```bash
+cd src/Main
+arch -x86_64 $HOME/.dotnet-x64/dotnet fable webpack --port free -- --config webpack.config.js
+```
+
+This compiles all F# source to JavaScript via Fable and bundles with webpack. Outputs:
+- `main.js` (Electron main process) in the project root
+- `app/js/renderer.js` (Electron renderer) in `app/js/`
+
+#### 7. Run
+
+```bash
+# From the project root:
+npx electron . -w
+```
+
+### macOS (Intel), Windows, Linux
+
+These platforms can use .NET Core 2.1 SDK natively.
 
 ```bash
 # Clone

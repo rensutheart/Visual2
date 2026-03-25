@@ -19,6 +19,7 @@ A walkthrough of the VisUAL2 codebase for new developers. This document explains
 11. [How to Add a New Instruction](#how-to-add-a-new-instruction)
 12. [Testing & Testbenches](#testing--testbenches)
 13. [Common Tasks](#common-tasks)
+14. [Upgrading the Stack (Feasibility Notes)](#upgrading-the-stack-feasibility-notes)
 
 > **See also:** [ARM Instructions Reference](arm-instructions.md) for the complete list of supported instructions, operand formats, and condition codes.
 
@@ -727,3 +728,97 @@ yarn pack-all     # All platforms
 ```
 
 Output goes to `dist/`.
+
+---
+
+## Upgrading the Stack (Feasibility Notes)
+
+This section documents the dependency coupling and what would be required to upgrade the build stack — for example, to get native ARM64 macOS support instead of running under Rosetta 2.
+
+### Why Upgrade?
+
+The current stack (Electron 2, Fable 2, .NET Core 2.1, Webpack 3) predates ARM64 macOS. None of these tools ship ARM64 binaries, so on Apple Silicon Macs the entire build and runtime chain runs under Rosetta 2 (x86_64 emulation). A stack upgrade would enable native ARM64 execution and modernise the tooling.
+
+### The Dependency Cascade
+
+To get native ARM64 macOS support, you need **Electron ≥ 11** (the first release with `darwin-arm64` builds). But upgrading Electron forces upgrades across the entire chain:
+
+| Component | Current | Minimum Target | Reason |
+|-----------|---------|---------------|--------|
+| Electron | 2.0.8 | 11+ (ideally 28+) | ARM64 macOS support |
+| Fable | 2.0.11 | 4.x | Requires .NET 6+ SDK (has ARM64 builds) |
+| .NET SDK | 2.1 | 6+ (ideally 8) | Required by Fable 4; has native ARM64 |
+| Webpack | 3 | 5 | New fable-loader compatibility |
+| Babel | 6 | 7+ (or remove entirely) | Fable 4 outputs modern JS directly |
+| React | 16.4 | 18 | Modern Fable.React / Feliz compatibility |
+
+### Coupling Analysis by Component
+
+#### Emulator (`src/Emulator/`) — NO CHANGES NEEDED
+
+All emulator files (Branch.fs, CommonData.fs, DP.fs, Expressions.fs, Helpers.fs, Memory.fs, Multiply.fs, Saturate.fs, Misc.fs, Errors.fs) are **pure F#** with zero Fable/Electron/Browser imports. They would work unmodified with any Fable version.
+
+#### Renderer (`src/Renderer/`) — SIGNIFICANT REFACTORING
+
+Every renderer file uses `Fable.Core.JsInterop` (the `?` dynamic operator, `jsNative`, `createObj`). Additionally:
+
+| File | Key Coupling | Migration Impact |
+|------|-------------|-----------------|
+| **Refs.fs** | `[<Emit("require('vex-js')")>]`, `importDefault "tippy.js"`, `electron.remote.require "electron-settings"` | Update `[<Emit>]` patterns, replace `electron.remote` with IPC |
+| **MenuBar.fs** | `electron.remote.BrowserWindow`, `electron.remote.dialog`, `electron.remote.Menu`, `electron.remote.getCurrentWindow()` | Heavy `electron.remote` refactoring to IPC |
+| **Files.fs** | `electron.remote.dialog.showSaveDialog`, `Fable.PowerPack` Promises | Replace `Fable.PowerPack`, refactor dialogs to IPC |
+| **Tooltips.fs** | `Fable.Helpers.React`, `Fable.Helpers.React.Props` | **Blocking** — these modules were removed in Fable 3; must rewrite to Feliz or modern Fable.React |
+| **Views.fs** | `Fable.Helpers.React`, `Fable.Helpers.React.Props` | Same as Tooltips.fs |
+| **Stats.fs** | `Fable.PowerPack.Fetch`, Node `fs`/`os` modules | Replace Fable.PowerPack with Fable.SimpleHttp or native fetch |
+| **ErrorDocs.fs** | `Fable.PowerPack` | Replace with modern alternative |
+| **Renderer.fs** | `electron.ipcRenderer`, `electron.remote.process.argv` | Refactor to contextBridge/preload pattern |
+| **Editors.fs** | Monaco editor via webpack externals | Should port cleanly |
+| **Tests.fs, Tabs.fs, Settings.fs, Integration.fs** | Standard `Fable.Core` + `Fable.Import.Browser` | Mostly mechanical updates |
+
+#### Main Process (`src/Main/Main.fs`) — MODERATE REFACTORING
+
+Uses `electron.app`, `electron.BrowserWindow`, `electron.ipcMain`, `[<Emit>]` for requires, and `electron.app.makeSingleInstance()` (API removed in later Electron). Needs updating to modern Electron lifecycle APIs and adding `ipcMain.handle()` handlers for the refactored renderer calls.
+
+#### Build Pipeline — FULL REWRITE
+
+The webpack.config.js uses Webpack 3 API, fable-loader 1.0.7 (Fable 2 only), Babel 6 presets, and CopyWebpackPlugin with the old constructor syntax. This needs a complete rewrite for Webpack 5 + fable-loader 2.x. The upside: Fable 4 emits modern JS directly, so Babel can be removed entirely.
+
+### The Five Blockers (Ranked by Effort)
+
+1. **`electron.remote` removal (~2 weeks)**
+   The renderer makes ~23 direct `electron.remote.*` calls across 4+ files (dialog, BrowserWindow, Menu, getCurrentWindow, getCurrentWebContents). Electron deprecated `remote` in v12 and removed it in v14. All these must be refactored into `ipcRenderer.invoke()` / `ipcMain.handle()` pairs with a preload script.
+
+2. **`Fable.Helpers.React` → Feliz (~3–5 days)**
+   `Fable.Helpers.React` and `Fable.Helpers.React.Props` (used in Tooltips.fs and Views.fs) were deleted in Fable 3. Must rewrite to [Feliz](https://zaid-ajaj.github.io/Feliz/) or the modern `Fable.React` API.
+
+3. **Webpack 3 → 5 + build pipeline (~1 week)**
+   Webpack config, fable-loader, Babel setup, and CopyWebpackPlugin all need rewriting. Fable 4's modern JS output means Babel can be dropped.
+
+4. **`Fable.PowerPack` replacement (~2–3 days)**
+   Used in Stats.fs, Files.fs, ErrorDocs.fs for Fetch/Promise. Replace with `Fable.SimpleHttp` or native fetch bindings.
+
+5. **`[<Emit>]` and `importDefault` updates (~1–2 days)**
+   The `[<Emit("require(...)")>]` patterns need updating for new module resolution. The `[<Emit>]` attribute itself still works in Fable 4.
+
+### Recommended Migration Strategy
+
+**Phase 1 — Fable 4 + .NET 8 (keep Electron 2 temporarily)**
+- Update `paket.dependencies` and `.fsproj` targets to `net8.0`
+- Migrate `Fable.Helpers.React` → Feliz
+- Replace `Fable.PowerPack` → `Fable.SimpleHttp`
+- Rewrite webpack.config.js for Webpack 5 + new fable-loader
+- Verify the app still runs on Electron 2 (x64)
+
+**Phase 2 — Electron upgrade**
+- Jump to Electron 28+ (current LTS)
+- Refactor all `electron.remote` → IPC pattern with preload script
+- Update `electron-settings`, `electron-context-menu`, `electron-tabs`
+- ARM64 macOS now works natively
+
+### Effort Estimates
+
+| Approach | Effort | Native ARM64? | Risk |
+|----------|--------|---------------|------|
+| Keep current + Rosetta 2 | None | No (x64 emulated, works fine) | Low |
+| Full upgrade to Fable 4 + Electron 28 | 3–6 weeks | Yes | Medium — mostly mechanical but tedious |
+| Rewrite renderer in plain JS/TS (keep F# emulator) | 4–8 weeks | Yes | Medium-High |
