@@ -72,6 +72,11 @@ module Misc
         let (|PARSE|_|) op = parseNumExpr ls op |> Some
         let (|RESOLVEALL|_|) lst = match parseExprList ls lst with | Ok ops -> Some ops | _ -> None
         let opCode = ls.OpCode
+        let (baseOpCode, instrCond) =
+            if opCode.Length = 5 && opCode.[0..2] = "ADR" &&
+               Map.containsKey (opCode.[3..]) condMap
+            then ("ADR", condMap.[opCode.[3..]])
+            else (opCode, Cal)
         let offsetError wb b1 b2 ofs =
             let msg = sprintf "Valid %s offset in range %d..%d. Use 'LDR Rx, =SYMBOL' when offset is larger than this" wb b1 b2
             makeParseError msg (sprintf "Offset of %d" ofs) ""
@@ -120,8 +125,8 @@ module Misc
             | Error e -> makeDataDirective (Some 0u) (Error e)
             |> fun pa -> { pa with PLabel = Option.map (fun lab -> lab, op) ls.Label }
 
-        let pa = copyDefault ls Cal
-        match opCode.ToUpper(), opLst with
+        let pa = copyDefault ls instrCond
+        match baseOpCode.ToUpper(), opLst with
         | "DCD", RESOLVEALL ops -> makeDataDirective (Some(opNum * 4u)) (makeDataInstr DCD)
         | "DCB", RESOLVEALL ops when ops.Length % 4 = 0 -> makeDataDirective (Some opNum) (makeDataInstr DCB)
         | "DCB", _ ->
@@ -151,6 +156,10 @@ module Misc
         if List.contains ls.OpCode miscRoots
         then
             //printfn "IMISC Parsing '%s'" ls.OpCode
+            parse ls |> Some
+        elif ls.OpCode.Length = 5 && ls.OpCode.[0..2] = "ADR" &&
+             Map.containsKey (ls.OpCode.[3..]) condMap
+        then
             parse ls |> Some
         else
             //printfn "IMISC Not parsing '%s'" ls.OpCode

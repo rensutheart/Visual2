@@ -236,7 +236,7 @@ module Memory
                     let memImmBounds =
                         match mSize with
                         | MWord -> 4092, -4092
-                        | MByte -> 1023, -1023
+                        | MByte -> 4095, -4095
                         | MHalf | MSignedHalf | MSignedByte -> 255, -255
                     match memImmBounds, immTxt with
                     | _, IMMEXPR(n, txt) when mSize = MWord && (n % 4u <> 0u) ->

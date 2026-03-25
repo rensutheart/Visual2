@@ -24,7 +24,7 @@ A complete reference of all ARM assembly instructions and directives supported b
 
 ## Condition Codes
 
-All instructions (except `END`, `ADR`, and the data directives `DCD`, `DCB`, `FILL`, `EQU`) can be conditionally executed by appending a 2-letter condition suffix. If omitted, the instruction always executes (equivalent to `AL`).
+All instructions (except `END` and the data directives `DCD`, `DCB`, `FILL`, `EQU`) can be conditionally executed by appending a 2-letter condition suffix. If omitted, the instruction always executes (equivalent to `AL`).
 
 | Suffix | Condition | Flags Tested |
 |--------|-----------|--------------|
@@ -141,7 +141,9 @@ The last operand of all data processing instructions uses the ARM "flexible oper
 | Register + register shift | `Rn, SHIFT Rs` | `R2, LSL R4` | Shifted register with shift amount from Rs[4:0] |
 | Register + RRX | `Rn, RRX` | `R2, RRX` | Rotate right extended (1-bit through carry) |
 
-**Restriction:** When a shift is applied, the shifted register (`Rn`) cannot be `R15` / `PC`.
+**Restriction:** In a register-controlled shift (`Rm, SHIFT Rs`), the shift register `Rs` cannot be `R15` / `PC`.
+
+> **ARMv7 note:** The full ARMv7 spec deprecates using `PC` for *any* operand (`Rd`, `Rn`, `Rm`, or `Rs`) in data processing instructions with a register-controlled shift. VisUAL2 enforces the most critical restriction (R15 as `Rs`), which produces UNPREDICTABLE results on all ARM versions.
 
 **Valid shift types:** `LSL`, `LSR`, `ASR`, `ROR`
 
@@ -243,7 +245,7 @@ QADD and QSUB do **not** modify N, Z, C, or V flags. In real ARM hardware they s
 | Post-indexed | `[Rn], #offset` | Address = Rn; Rn updated to Rn + offset |
 
 **Offset formats:**
-- Immediate: `#value` (±4092 for word, must be divisible by 4; ±1023 for byte)
+- Immediate: `#value` (±4095 for word or byte per ARM spec; VisUAL2 requires word offsets to be divisible by 4, giving an effective word range of ±4092)
 - Register: `±Rm`
 - Scaled register: `±Rm, LSL #n` / `±Rm, LSR #n` / `±Rm, ASR #n`
 
@@ -417,13 +419,13 @@ Values can be:
 
 | Directive | Syntax | Description |
 |-----------|--------|-------------|
-| `ADR` | `ADR Rd, label` | Load the address of `label` into `Rd`. |
+| `ADR` | `ADR{cond} Rd, label` | Load the address of `label` into `Rd`. |
 
 **Constraints:**
 - Byte offset (label − PC − 8) must be in range −248 to +264 if not word-aligned
 - Word offset must be in range −1016 to +1032
 - For larger offsets, use `LDR Rd, =label` instead
-- Does **not** support condition codes (always executes)
+- Supports all condition codes
 - Writing to R15 (PC) causes a 2-cycle stall
 
 ---
@@ -463,7 +465,6 @@ The following ARM features are **not supported** in VisUAL2:
 | CPSR/SPSR access | No direct flag register read/write |
 | Q (saturation) flag | `QADD`/`QSUB` saturate correctly but the Q sticky flag is not tracked |
 | Division | `SDIV`, `UDIV` (ARMv7-R/ARMv7-M only) |
-| `ADR` condition codes | `ADR` always executes — condition suffixes are not supported |
 
 ---
 
