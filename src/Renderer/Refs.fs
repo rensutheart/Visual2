@@ -22,7 +22,7 @@ open EEExtensions
 //                                  App Version
 // **********************************************************************************
 
-let appVersion = "2.0.1-SU"
+let appVersion = "2.1.0-SU"
 let baseVersion = "1.06.10"  // Original VisUAL2 version this fork is based on
 
 // **********************************************************************************
@@ -42,6 +42,7 @@ type Views =
     | Registers
     | Memory
     | Symbols
+    | Display
 
 type VSettings = {
     EditorFontSize : string
@@ -202,6 +203,27 @@ let symView = getHtml "sym-view"
 /// get symbol table element
 let symTable = getHtml "sym-table"
 
+/// get display canvas element
+let displayCanvas = getHtml "display-canvas" :?> HTMLCanvasElement
+/// get display toggle checkbox
+let displayToggle = getHtml "display-toggle" :?> HTMLInputElement
+/// get display message element (shown when display is off)
+let displayMessage = getHtml "display-message"
+/// get display continue button
+let displayContinueBtn = getHtml "display-continue-btn" :?> HTMLButtonElement
+/// get display clear button
+let displayClearBtn = getHtml "display-clear-btn" :?> HTMLButtonElement
+/// get display frame counter element
+let displayFrameCounter = getHtml "display-frame-counter"
+/// get display auto-refresh checkbox
+let displayAutoRefresh = getHtml "display-auto-refresh" :?> HTMLInputElement
+/// get display speed dropdown
+let displaySpeedSelect = getHtml "display-speed-select" :?> HTMLSelectElement
+/// get display status info element
+let displayStatusInfo = getHtml "display-status-info"
+/// get display grid size selector
+let displayGridSizeSelect = getHtml "display-grid-size" :?> HTMLSelectElement
+
 //---------------------File tab elements-------------------------------
 
 /// get element containing all tab headers
@@ -228,13 +250,15 @@ let viewToIdView =
         Registers, "view-reg";
         Memory, "view-mem";
         Symbols, "view-sym";
+        Display, "view-display";
     ]
 /// used to get Tab ID in DOM for each View
 let viewToIdTab =
     Map.ofList [
         Registers, "tab-reg";
         Memory, "tab-mem";
-        Symbols, "tab-sym"
+        Symbols, "tab-sym";
+        Display, "tab-display"
     ]
 /// Get Flag display element from ID ("C", "V", "N", "Z")
 let flag id = getHtml <| sprintf "flag_%s" id
@@ -571,6 +595,21 @@ let mutable flags : CommonData.Flags = initialFlags
 let mutable symbolMap : Map<string, uint32 * ExecutionTop.SymbolType> = Map.empty
 /// version of symbolMap currently displayed
 let mutable displayedSymbolMap : Map<string, uint32 * ExecutionTop.SymbolType> = Map.empty
+
+/// Whether the memory-mapped display mode is active
+let mutable displayModeActive = false
+/// Base address for the memory-mapped display (default 0x2000)
+let displayBaseAddress = 0x2000u
+/// Grid size for the display (16, 32, or 64)
+let mutable displayGridSize = 16
+/// Frame counter for display refresh cycles
+let mutable displayFrameCount = 0
+/// Whether auto-refresh (auto-continue after display break) is enabled
+let mutable displayAutoRefreshEnabled = false
+/// Delay in milliseconds between auto-continue frames
+let mutable displayRefreshDelay = 500
+/// Timer ID for auto-continue, used for cancellation
+let mutable displayAutoRefreshTimerId : int option = None
 
 /// Current state of simulator
 let mutable runMode : ExecutionTop.RunMode = ExecutionTop.ResetMode

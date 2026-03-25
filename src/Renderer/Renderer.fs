@@ -123,6 +123,42 @@ let init() =
         Views.updateMemory() :> obj
     )
 
+    (Refs.displayToggle).addEventListener_click(fun _ ->
+        Browser.console.log "Toggling display mode" |> ignore
+        Views.toggleDisplayMode() :> obj
+    )
+
+    // Display Continue button: resume execution after display refresh break
+    (Refs.displayContinueBtn).addEventListener_click(fun _ ->
+        if not Refs.displayAutoRefreshEnabled then
+            Integration.runCode ExecutionTop.NoBreak ()
+        createObj [])
+
+    // Display Clear button: clear display memory to black
+    (Refs.displayClearBtn).addEventListener_click(fun _ ->
+        Views.clearDisplayMemory() :> obj
+    )
+
+    // Display auto-refresh toggle
+    (Refs.displayAutoRefresh).addEventListener_click(fun _ ->
+        Refs.displayAutoRefreshEnabled <- Refs.displayAutoRefresh.``checked``
+        Refs.displayContinueBtn.disabled <- Refs.displayAutoRefreshEnabled
+        createObj []
+    )
+
+    // Display speed selector
+    (Refs.displaySpeedSelect).addEventListener_change(fun _ ->
+        Refs.displayRefreshDelay <- int Refs.displaySpeedSelect.value
+        createObj []
+    )
+
+    // Display grid size selector
+    (Refs.displayGridSizeSelect).addEventListener_change(fun _ ->
+        Refs.displayGridSize <- int Refs.displayGridSizeSelect.value
+        if Refs.displayModeActive then Views.renderDisplay()
+        createObj []
+    )
+
     (Refs.newFileTab).addEventListener_click(fun _ ->
         Browser.console.log "Creating a new file tab" |> ignore
         MenuBar.interlock "create a new tab" (fun () -> Tabs.createFileTab() |> ignore))

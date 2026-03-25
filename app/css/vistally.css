@@ -367,6 +367,116 @@ div.after {
 .tippy-tooltip.light-theme {
     color: #26323d;
     box-shadow: 0 0 20px 4px rgba(154,161,177,.15),0 4px 80px -8px rgba(36,40,47,.25),0 4px 4px -2px rgba(91,94,105,.15);
+}
+
+/* ==================== Memory-Mapped Display ==================== */
+
+.display-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+.display-toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    cursor: pointer;
+    -webkit-user-select: none;
+}
+
+.display-toggle-label input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+}
+
+.display-palette-link {
+    font-size: 11px;
+    color: #4078c0;
+    text-decoration: none;
+}
+
+.display-palette-link:hover {
+    text-decoration: underline;
+}
+
+.display-message {
+    text-align: center;
+    padding: 20px 10px;
+    color: #888;
+    font-size: 12px;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+}
+
+.display-canvas-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+}
+
+#display-canvas {
+    border: 1px solid #999;
+    image-rendering: pixelated;
+}
+
+.display-animation-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.display-continue-btn {
+    font-size: 11px;
+    padding: 2px 10px;
+}
+
+.display-continue-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.display-auto-label {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    cursor: pointer;
+    -webkit-user-select: none;
+}
+
+.display-auto-label input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+}
+
+.display-speed-select {
+    font-size: 11px;
+    padding: 1px 4px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    background: #fff;
+}
+
+.display-frame-counter {
+    font-size: 11px;
+    color: #666;
+}
+
+.display-status-info {
+    font-size: 11px;
+    color: #666;
+    text-align: center;
+    padding: 2px 0;
+}
     background-color: #fff;
     border-style: solid;
     border-color: blue;

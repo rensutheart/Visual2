@@ -150,6 +150,26 @@ let loadDemo() =
         ))
         Tabs.setTabSaved tId
 
+let loadDisplayDemo() =
+    Tabs.createFileTab()
+    |> fun tId ->
+        let sampleFileName = Tests.sampleDir + "display_test.s"
+        printfn "Reading sample file: %s" sampleFileName
+        Node.Exports.fs.readFile (sampleFileName, (fun _ data ->
+                                              loadFileIntoTab tId data
+        ))
+        Tabs.setTabSaved tId
+
+let loadDisplayAnimationDemo() =
+    Tabs.createFileTab()
+    |> fun tId ->
+        let sampleFileName = Tests.sampleDir + "display_animation.s"
+        printfn "Reading sample file: %s" sampleFileName
+        Node.Exports.fs.readFile (sampleFileName, (fun _ data ->
+                                              loadFileIntoTab tId data
+        ))
+        Tabs.setTabSaved tId
+
 
 
 let showQuitMessage (callBack : bool -> unit) =
@@ -319,6 +339,7 @@ let helpMenu() =
             [
                 makeItem "VisUAL2-SU GitHub repository" Core.Option.None (runExtPage "https://github.com/rensutheart/Visual2")
                 makeItem "VisUAL2-SU supported instructions" Core.Option.None (runExtPage "https://github.com/rensutheart/Visual2/blob/master/docs/arm-instructions.md")
+                makeItem "Memory-mapped display guide" Core.Option.None (runExtPage "https://github.com/rensutheart/Visual2/blob/master/docs/display-mode.md")
                 menuSeparator
                 makeItem "Original VisUAL2 web pages" Core.Option.None (runExtPage <| visualDocsPage "")
                 makeItem "UAL instruction guide" Core.Option.None (runExtPage <| visualDocsPage "guide#content")
@@ -326,6 +347,8 @@ let helpMenu() =
                 makeItem "Official ARM documentation" Core.Option.None (runExtPage "http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0234b/i1010871.html")
                 menuSeparator
                 makeItem "Load complex demo code" Core.Option.None (interlockAction "load code" loadDemo)
+                makeItem "Load display demo code" Core.Option.None (interlockAction "load display demo" loadDisplayDemo)
+                makeItem "Load display animation demo" Core.Option.None (interlockAction "load animation demo" loadDisplayAnimationDemo)
                 makeCondItem (debugLevel > 0) "Run dev tools FABLE checks" Core.Option.None (interlockAction "FABLE checks" Integration.runTestbench)
                 makeCondItem (debugLevel > 0) "Run Emulator Tests" Core.Option.None (interlockAction "run tests" Tests.runAllEmulatorTests)
                 menuSeparator
@@ -338,7 +361,8 @@ let helpMenu() =
                                 "<p><b>Acknowledgements:</b> Salman Arif (VisUAL), HLP 2018 class" +
                                 " (F# reimplementation), with special mention to Thomas Carrotti," +
                                 " Lorenzo Silvestri, and HLP Team 10.<br>" +
-                                "SU edition: expanded instruction set and ARM spec compliance fixes.</p>"))
+                                "SU edition: expanded instruction set, memory-mapped pixel display," +
+                                " and ARM spec compliance fixes.</p>"))
             ])
 
 

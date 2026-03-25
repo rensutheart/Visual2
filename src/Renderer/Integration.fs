@@ -130,6 +130,20 @@ let getFlags() =
 let setCurrentModeActiveFromInfo runState ri =
     setMode (ActiveMode(runState, ri))
 
+/// Cancel any pending display auto-refresh timer
+let cancelDisplayAutoRefresh () =
+    match Refs.displayAutoRefreshTimerId with
+    | Some id ->
+        Browser.window.clearTimeout (float id)
+        Refs.displayAutoRefreshTimerId <- None
+    | None -> ()
+
+/// Update display status info (frame counter etc.)
+let updateDisplayStatus () =
+    if Refs.displayModeActive then
+        Refs.displayStatusInfo.innerHTML <-
+            sprintf "Frame: %d" Refs.displayFrameCount
+
 let resetEmulator() =
     printfn "Resetting..."
     Tooltips.deleteAllContentWidgets()
@@ -145,6 +159,10 @@ let resetEmulator() =
     resetFlags()
     updateRegisters()
     updateClockTime (0uL, 0uL)
+    cancelDisplayAutoRefresh()
+    Refs.displayFrameCount <- 0
+    updateDisplayStatus()
+    updateDisplay()
 
 /// Display current execution state in GUI from stored runMode
 let showInfoFromCurrentMode() =
@@ -162,6 +180,12 @@ let showInfoFromCurrentMode() =
         setRegs dp.Regs
         setFlags uFl
         updateRegisters()
+        // Only update display during intermediate GUI refreshes if we are NOT
+        // in DisplayBreak mode. In DisplayBreak mode the display is rendered
+        // only at the R10 trigger point, avoiding mid-frame tearing on larger grids.
+        match runMode with
+        | ActiveMode(Running, ri) when ri.BreakCond = DisplayBreak -> ()
+        | _ -> updateDisplay()
         updateClockTime ((ri.StepsDone |> uint64), (ri.CyclesDone |> uint64)) |> ignore
     | _ -> ()
 
@@ -360,7 +384,9 @@ let runTests startTest tests stepFunc =
 /// Always update GUI at end.
 /// Stored history means that backward stepping will always be fast.
 let rec asmStepDisplay (breakc : BreakCondition) steps ri' =
-    let ri = { ri' with BreakCond = breakc }
+    let effectiveBreakc =
+        if Refs.displayModeActive && breakc = NoBreak then DisplayBreak else breakc
+    let ri = { ri' with BreakCond = effectiveBreakc }
     let loopMessage() =
         let steps = Refs.vSettings.SimulatorMaxSteps
         sprintf "WARNING Possible infinite loop: max number of steps (%s) exceeded. To disable this warning use Edit -> Preferences" steps
@@ -384,6 +410,7 @@ let rec asmStepDisplay (breakc : BreakCondition) steps ri' =
 
     match runMode with
     | ActiveMode(Stopping, ri') -> // pause execution from GUI button
+        cancelDisplayAutoRefresh()
         setCurrentModeActiveFromInfo RunState.Paused ri'
         showInfoFromCurrentMode()
         highlightCurrentAndNextIns "editor-line-highlight" ri' currentFileTabId
@@ -408,6 +435,39 @@ let rec asmStepDisplay (breakc : BreakCondition) steps ri' =
                  Browser.window.setTimeout ((fun () ->
                         // schedule more simulation in the event loop allowing button-press events
                         asmStepDisplay ri'.BreakCond steps ri'), 0, []) |> ignore
+            | PSBreak when Refs.displayModeActive && ri'.BreakCond = DisplayBreak ->
+                // Display refresh break: auto-clear R10 and pause
+                let dp, ufl = ri'.dpCurrent
+                let clearedDp = { dp with Regs = Map.add R10 0u dp.Regs }
+                // Insert a history entry at the break point with R10 cleared.
+                // This ensures that when asmStep resumes from history, it starts
+                // from this point (with R10=0) rather than replaying from an earlier
+                // snapshot and re-executing MOV R10, #1 which would re-trigger.
+                let breakStep : Step = {
+                    Dp = (clearedDp, ufl)
+                    NumDone = ri'.StepsDone
+                    NumCycDone = ri'.CyclesDone
+                    SI = ri'.StackInfo
+                }
+                let updatedHistory =
+                    breakStep :: ri'.History
+                    |> List.distinctBy (fun s -> s.NumDone)
+                    |> List.sortByDescending (fun s -> s.NumDone)
+                let ri'' = { ri' with dpCurrent = (clearedDp, ufl); History = updatedHistory }
+                Refs.displayFrameCount <- Refs.displayFrameCount + 1
+                displayState ri'' false
+                highlightCurrentAndNextIns "editor-line-highlight" ri'' currentFileTabId
+                updateDisplayStatus()
+                // Auto-continue if enabled
+                if Refs.displayAutoRefreshEnabled then
+                    let timerId =
+                        Browser.window.setTimeout ((fun () ->
+                            Refs.displayAutoRefreshTimerId <- None
+                            match runMode with
+                            | ActiveMode(RunState.Paused, ri) ->
+                                asmStepDisplay DisplayBreak steps ri
+                            | _ -> ()), Refs.displayRefreshDelay, [])
+                    Refs.displayAutoRefreshTimerId <- Some (int timerId)
             | _ ->
                 displayState ri' false // update GUI
                 highlightCurrentAndNextIns "editor-line-highlight" ri' currentFileTabId

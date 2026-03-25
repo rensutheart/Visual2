@@ -150,6 +150,7 @@ type BreakCondition =
     | NoBreak
     | ToSubroutine
     | ToReturn
+    | DisplayBreak
 
 
 type RunInfo = {
@@ -551,7 +552,7 @@ let asmStep (numSteps : int64) (ri : RunInfo) =
                         running <- false
                 | _ -> ()
 
-        let runFrom = match ri.BreakCond with | NoBreak -> numSteps | _ -> ri.StepsDone
+        let runFrom = match ri.BreakCond with | NoBreak | DisplayBreak -> numSteps | _ -> ri.StepsDone
         let (future, past) = List.partition (fun (st : Step) -> st.NumDone >= runFrom) ri.History
         let mutable history = past
         match past with
@@ -572,6 +573,8 @@ let asmStep (numSteps : int64) (ri : RunInfo) =
             match stepRes with
             | Result.Ok(dp', uF') ->
                 lastDP <- Some dp; dp <- dp', uF'; stepsDone <- stepsDone + 1L;
+                if ri.BreakCond = DisplayBreak && (fst dp).Regs.[R10] = 1u then
+                    running <- false; state <- PSBreak
             | Result.Error EXIT -> running <- false; state <- PSExit;
             | Result.Error e -> running <- false; state <- PSError e; lastDP <- Some dp;
             cyclesDone <- cyclesDone + match ti with | _, Some { Cycles = cyc } -> cyc + 1L | _, None -> 1L
@@ -589,7 +592,10 @@ let asmStep (numSteps : int64) (ri : RunInfo) =
                 StepsDone = stepsDone
                 CyclesDone = cyclesDone
                 StackInfo = stackInfo
-                BreakCond = if state = PSBreak then NoBreak else ri.BreakCond
+                BreakCond = match state, ri.BreakCond with
+                            | PSBreak, DisplayBreak -> DisplayBreak
+                            | PSBreak, _ -> NoBreak
+                            | _ -> ri.BreakCond
                 Coverage = coverage
                 History =
                     future @ history

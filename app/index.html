@@ -88,6 +88,7 @@
                                     <tab id="tab-reg" class="tab-item active">Registers</tab>
                                     <tab id="tab-mem" class="tab-item">Memory</tab>
                                     <tab id="tab-sym" class="tab-item">Symbols</tab>
+                                    <tab id="tab-display" class="tab-item">Display</tab>
                                 </div>
                             </li>
                         </ul>
@@ -220,6 +221,51 @@
                         </ul>
                         <div id="view-sym" class="list-group invisible">
                             <table class="table-striped" id="sym-table"></table>
+                        </div>
+                        <div id="view-display" class="list-group invisible">
+                            <div class="display-controls">
+                                <label class="display-toggle-label">
+                                    <input type="checkbox" id="display-toggle"> Display Mode
+                                </label>
+                                <select id="display-grid-size" class="display-speed-select">
+                                    <option value="16" selected>16×16</option>
+                                    <option value="32">32×32</option>
+                                    <option value="64">64×64</option>
+                                </select>
+                                <a href="https://www.fountainware.com/EXPL/vga_color_palettes.htm"
+                                    class="display-palette-link"
+                                    onclick="require('electron').shell.openExternal(this.href); return false;">
+                                    VGA Palette Reference
+                                </a>
+                            </div>
+                            <div id="display-message" class="display-message">
+                                Display Mode is off. Enable it above to show the memory-mapped pixel display.
+                            </div>
+                            <div id="display-canvas-container" class="display-canvas-container invisible">
+                                <canvas id="display-canvas" width="320" height="320"></canvas>
+                                <div class="display-animation-controls">
+                                    <button id="display-continue-btn"
+                                        class="btn btn-mini btn-default display-continue-btn">
+                                        Continue ▶
+                                    </button>
+                                    <button id="display-clear-btn" class="btn btn-mini btn-default display-clear-btn">
+                                        Clear
+                                    </button>
+                                    <label class="display-auto-label">
+                                        <input type="checkbox" id="display-auto-refresh"> Auto
+                                    </label>
+                                    <select id="display-speed-select" class="display-speed-select">
+                                        <option value="1000">1 FPS</option>
+                                        <option value="500" selected>2 FPS</option>
+                                        <option value="250">4 FPS</option>
+                                        <option value="100">10 FPS</option>
+                                        <option value="50">20 FPS</option>
+                                        <option value="33">30 FPS</option>
+                                    </select>
+                                    <span id="display-frame-counter" class="display-frame-counter"></span>
+                                </div>
+                                <div id="display-status-info" class="display-status-info"></div>
+                            </div>
                         </div>
                     </div>
 

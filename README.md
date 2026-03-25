@@ -141,6 +141,18 @@ See [docs/arm-instructions.md](docs/arm-instructions.md) for full details.
 
 ---
 
+## Memory-Mapped Display
+
+VisUAL2-SU includes a built-in memory-mapped pixel display for graphics and animation exercises. Students write ARM assembly that stores colour values to memory starting at address `0x2000`, and the Display tab renders those bytes as a grid of coloured pixels using the VGA 256-colour palette.
+
+- **Grid sizes:** 16×16, 32×32, or 64×64 pixels
+- **Animation:** Write `MOV R10, #1` to trigger a display refresh and pause execution
+- **Controls:** Continue, Clear, Auto-animate with configurable FPS
+
+See [docs/display-mode.md](docs/display-mode.md) for full details, examples, and the animation workflow.
+
+---
+
 ## Building from Source (For Developers)
 
 If you want to modify VisUAL2-SU or build it yourself, see the [original project wiki](https://github.com/ImperialCollegeLondon/Visual2/wiki) for background. The build requires:
@@ -174,7 +186,7 @@ yarn pack-osx       # macOS binary → dist/ (macOS host only for DMG)
 
 This is the **Stellenbosch University (SU) edition** of [VisUAL2](https://github.com/ImperialCollegeLondon/Visual2), originally developed at Imperial College London. Based on VisUAL2 v1.06.10.
 
-**SU edition by:** Rensu Theart, Stellenbosch University — expanded instruction set (PUSH/POP, BX/BLX, half-word, multiply, saturating arithmetic, LDRD/STRD), ARM spec compliance fixes, and documentation.
+**SU edition by:** Rensu Theart, Stellenbosch University — expanded instruction set (PUSH/POP, BX/BLX, half-word, multiply, saturating arithmetic, LDRD/STRD), ARM spec compliance fixes, memory-mapped pixel display, and documentation.
 
 **Original acknowledgements:** Salman Arif (VisUAL), HLP 2018 class (F# reimplementation), Thomas Carrotti, Lorenzo Silvestri, and HLP Team 10. See the original [acknowledgements](https://github.com/ImperialCollegeLondon/Visual2/wiki/Acknowledgements).
 

@@ -2026,7 +2026,6 @@ amdRequire(["vs/editor/editor.main"], function () {
         [/'[^\\']'/, "string"],
         [/(')(@escapes)(')/, ["string", "string.escape", "string"]],
         [/'/, "string.invalid"],
-
       ],
 
       blockComment: [

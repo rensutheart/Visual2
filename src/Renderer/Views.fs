@@ -32,6 +32,7 @@ let calcDashboardWidth() =
         match currentRep, currentView with
         | Bin, _ -> "--dashboard-width-binrep"
         | _, Registers -> "--dashboard-width-init-registers"
+        | _, Display -> "--dashboard-width-init-other"
         | _ -> "--dashboard-width-init-other"
         |> getCustomCSS
     printf "Setting width to %s" w
@@ -321,5 +322,112 @@ let setView view =
     currentView <- view
     calcDashboardWidth()
     updateMemory()
+
+// ***********************************************************************************
+//                       Memory-Mapped Pixel Display
+// ***********************************************************************************
+
+/// VGA 256-colour palette: index -> (R, G, B)
+let vgaPalette = [|
+    (0, 0, 0); (0, 2, 170); (20, 170, 0); (0, 170, 170); (170, 0, 3); (170, 0, 170); (170, 85, 0); (170, 170, 170)
+    (85, 85, 85); (85, 85, 255); (85, 255, 85); (85, 255, 255); (255, 85, 85); (253, 85, 255); (255, 255, 85); (255, 255, 255)
+    (0, 0, 0); (16, 16, 16); (32, 32, 32); (53, 53, 53); (69, 69, 69); (85, 85, 85); (101, 101, 101); (117, 117, 117)
+    (138, 138, 138); (154, 154, 154); (170, 170, 170); (186, 186, 186); (202, 202, 202); (223, 223, 223); (239, 239, 239); (255, 255, 255)
+    (0, 4, 255); (65, 4, 255); (130, 3, 255); (190, 2, 255); (253, 0, 255); (254, 0, 190); (255, 0, 130); (255, 0, 65)
+    (255, 0, 8); (255, 65, 5); (255, 130, 0); (255, 190, 0); (255, 255, 0); (190, 255, 0); (130, 255, 0); (65, 255, 1)
+    (36, 255, 0); (34, 255, 66); (29, 255, 130); (18, 255, 190); (0, 255, 255); (0, 190, 255); (1, 130, 255); (0, 65, 255)
+    (130, 130, 255); (158, 130, 255); (190, 130, 255); (223, 130, 255); (253, 130, 255); (254, 130, 223); (255, 130, 190); (255, 130, 158)
+    (255, 130, 130); (255, 158, 130); (255, 190, 130); (255, 223, 130); (255, 255, 130); (223, 255, 130); (190, 255, 130); (158, 255, 130)
+    (130, 255, 130); (130, 255, 158); (130, 255, 190); (130, 255, 223); (130, 255, 255); (130, 223, 255); (130, 190, 255); (130, 158, 255)
+    (186, 186, 255); (202, 186, 255); (223, 186, 255); (239, 186, 255); (254, 186, 255); (254, 186, 239); (255, 186, 223); (255, 186, 202)
+    (255, 186, 186); (255, 202, 186); (255, 223, 186); (255, 239, 186); (255, 255, 186); (239, 255, 186); (223, 255, 186); (202, 255, 187)
+    (186, 255, 186); (186, 255, 202); (186, 255, 223); (186, 255, 239); (186, 255, 255); (186, 239, 255); (186, 223, 255); (186, 202, 255)
+    (1, 1, 113); (28, 1, 113); (57, 1, 113); (85, 0, 113); (113, 0, 113); (113, 0, 85); (113, 0, 57); (113, 0, 28)
+    (113, 0, 1); (113, 28, 1); (113, 57, 0); (113, 85, 0); (113, 113, 0); (85, 113, 0); (57, 113, 0); (28, 113, 0)
+    (9, 113, 0); (9, 113, 28); (6, 113, 57); (3, 113, 85); (0, 113, 113); (0, 85, 113); (0, 57, 113); (0, 28, 113)
+    (57, 57, 113); (69, 57, 113); (85, 57, 113); (97, 57, 113); (113, 57, 113); (113, 57, 97); (113, 57, 85); (113, 57, 69)
+    (113, 57, 57); (113, 69, 57); (113, 85, 57); (113, 97, 57); (113, 113, 57); (97, 113, 57); (85, 113, 57); (69, 113, 58)
+    (57, 113, 57); (57, 113, 69); (57, 113, 85); (57, 113, 97); (57, 113, 113); (57, 97, 113); (57, 85, 113); (57, 69, 114)
+    (81, 81, 113); (89, 81, 113); (97, 81, 113); (105, 81, 113); (113, 81, 113); (113, 81, 105); (113, 81, 97); (113, 81, 89)
+    (113, 81, 81); (113, 89, 81); (113, 97, 81); (113, 105, 81); (113, 113, 81); (105, 113, 81); (97, 113, 81); (89, 113, 81)
+    (81, 113, 81); (81, 113, 90); (81, 113, 97); (81, 113, 105); (81, 113, 113); (81, 105, 113); (81, 97, 113); (81, 89, 113)
+    (0, 0, 66); (17, 0, 65); (32, 0, 65); (49, 0, 65); (65, 0, 65); (65, 0, 50); (65, 0, 32); (65, 0, 16)
+    (65, 0, 0); (65, 16, 0); (65, 32, 0); (65, 49, 0); (65, 65, 0); (49, 65, 0); (32, 65, 0); (16, 65, 0)
+    (3, 65, 0); (3, 65, 16); (2, 65, 32); (1, 65, 49); (0, 65, 65); (0, 49, 65); (0, 32, 65); (0, 16, 65)
+    (32, 32, 65); (40, 32, 65); (49, 32, 65); (57, 32, 65); (65, 32, 65); (65, 32, 57); (65, 32, 49); (65, 32, 40)
+    (65, 32, 32); (65, 40, 32); (65, 49, 32); (65, 57, 33); (65, 65, 32); (57, 65, 32); (49, 65, 32); (40, 65, 32)
+    (32, 65, 32); (32, 65, 40); (32, 65, 49); (32, 65, 57); (32, 65, 65); (32, 57, 65); (32, 49, 65); (32, 40, 65)
+    (45, 45, 65); (49, 45, 65); (53, 45, 65); (61, 45, 65); (65, 45, 65); (65, 45, 61); (65, 45, 53); (65, 45, 49)
+    (65, 45, 45); (65, 49, 45); (65, 53, 45); (65, 61, 45); (65, 65, 45); (61, 65, 45); (53, 65, 45); (49, 65, 45)
+    (45, 65, 45); (45, 65, 49); (45, 65, 53); (45, 65, 61); (45, 65, 65); (45, 61, 65); (45, 53, 65); (45, 49, 65)
+    (0, 0, 0); (0, 0, 0); (0, 0, 0); (0, 0, 0); (0, 0, 0); (0, 0, 0); (0, 0, 0); (0, 0, 0)
+|]
+
+/// Read a single byte from the memory map (little-endian word storage)
+let readMemByte (mem : Map<uint32, uint32>) (byteAddr : uint32) =
+    let wordAddr = byteAddr &&& 0xFFFFFFFCu
+    let byteOffset = int (byteAddr &&& 3u)
+    let wordVal = match Map.tryFind wordAddr mem with | Some v -> v | None -> 0u
+    int ((wordVal >>> (byteOffset * 8)) &&& 0xFFu)
+
+/// Canvas pixel size
+let displayCanvasSize = 320.0
+
+/// Render the pixel grid onto the display canvas
+let renderDisplay () =
+    let canvas = displayCanvas
+    let gridSize = displayGridSize
+    let totalPixels = gridSize * gridSize
+    let cellSize = displayCanvasSize / (float gridSize)
+    // Set canvas size
+    canvas.width <- displayCanvasSize
+    canvas.height <- displayCanvasSize
+    let ctx : CanvasRenderingContext2D = unbox(canvas?getContext("2d"))
+    // Clear
+    ctx.clearRect(0.0, 0.0, displayCanvasSize, displayCanvasSize)
+    // Draw each pixel
+    for i in 0 .. totalPixels - 1 do
+        let byteAddr = displayBaseAddress + (uint32 i)
+        let paletteIdx = readMemByte memoryMap byteAddr
+        let idx = if paletteIdx >= 0 && paletteIdx < 256 then paletteIdx else 0
+        let (r, g, b) = vgaPalette.[idx]
+        let row = i / gridSize
+        let col = i % gridSize
+        let x = (float col) * cellSize
+        let y = (float row) * cellSize
+        ctx?fillStyle <- sprintf "rgb(%d,%d,%d)" r g b
+        ctx.fillRect(x, y, cellSize, cellSize)
+
+/// Update the display view if display mode is active
+let updateDisplay () =
+    if displayModeActive then
+        renderDisplay()
+
+/// Toggle display mode on/off and update UI visibility
+let toggleDisplayMode () =
+    displayModeActive <- displayToggle.``checked``
+    let canvasContainer = getHtml "display-canvas-container"
+    if displayModeActive then
+        displayMessage.classList.add("invisible")
+        canvasContainer.classList.remove("invisible")
+        renderDisplay()
+    else
+        displayMessage.classList.remove("invisible")
+        canvasContainer.classList.add("invisible")
+
+/// Clear the display memory region (set all pixels to 0/black) and re-render
+let clearDisplayMemory () =
+    let gridSize = displayGridSize
+    let totalPixels = gridSize * gridSize
+    // Remove all display memory keys from the memoryMap
+    let keysToRemove =
+        [ for i in 0 .. (totalPixels / 4) do
+            yield displayBaseAddress + (uint32 (i * 4)) ]
+    let mutable mm = memoryMap
+    for k in keysToRemove do
+        mm <- Map.remove k mm
+    memoryMap <- mm
+    if displayModeActive then
+        renderDisplay()
 
 
