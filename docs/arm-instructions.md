@@ -141,9 +141,7 @@ The last operand of all data processing instructions uses the ARM "flexible oper
 | Register + register shift | `Rn, SHIFT Rs` | `R2, LSL R4` | Shifted register with shift amount from Rs[4:0] |
 | Register + RRX | `Rn, RRX` | `R2, RRX` | Rotate right extended (1-bit through carry) |
 
-**Restriction:** In a register-controlled shift (`Rm, SHIFT Rs`), the shift register `Rs` cannot be `R15` / `PC`.
-
-> **ARMv7 note:** The full ARMv7 spec deprecates using `PC` for *any* operand (`Rd`, `Rn`, `Rm`, or `Rs`) in data processing instructions with a register-controlled shift. VisUAL2 enforces the most critical restriction (R15 as `Rs`), which produces UNPREDICTABLE results on all ARM versions.
+**Restriction:** `R15` (`PC`) cannot be used for any register (`Rd`, `Rn`, `Rm`, or `Rs`) in a data processing instruction with a register-controlled shift (`Rm, SHIFT Rs`). Using R15 in any position produces UNPREDICTABLE results on real hardware. This restriction applies to all ARM architecture versions (ARMv4 through ARMv7+).
 
 **Valid shift types:** `LSL`, `LSR`, `ASR`, `ROR`
 

@@ -311,6 +311,9 @@ let parseOp2 (subMode : InstrNegativeLiteralMode) (symTable : SymbolTable) (args
 
         let makeRegShift shiftType r = RegisterWithRegisterShift(reg, shiftType, r)
 
+        let r15RegShiftError pos =
+            makeFormatError (sprintf "R15 (PC) cannot be used as %s in a data processing instruction with register-controlled shift" pos) "R15" ""
+
         if str.ToUpper() = "RRX" then
             Ok(RegisterWithRRX reg)
         else
@@ -319,12 +322,14 @@ let parseOp2 (subMode : InstrNegativeLiteralMode) (symTable : SymbolTable) (args
                 imm.Substring(1)
                 |> parseNumberExpression symTable
                 |> Result.bind (makeLitShift imm reg shiftType)
-            | Ok shiftType, reg when isRegister reg ->
-                parseRegister reg
-                |> Result.bind (
-                    function | R15 -> makeFormatError "Error: operand 2 cannot be PC or R15 if shift is being used" reg ""
-                             | rName -> Ok rName)
-                |> Result.map (makeRegShift shiftType)
+            | Ok shiftType, rsStr when isRegister rsStr ->
+                if reg = R15 then r15RegShiftError "Rm (shifted register)"
+                else
+                    parseRegister rsStr
+                    |> Result.bind (
+                        function | R15 -> r15RegShiftError "Rs (shift register)"
+                                 | rName -> Ok rName)
+                    |> Result.map (makeRegShift shiftType)
             | Ok shiftType, imm when isValidNumericExpression symTable imm ->
                 makeFormatError "Literal constants in instruction operands require '#' prefix" imm ""
             | _ -> makeDPE "Valid flexible op2 shift type" str
@@ -356,8 +361,13 @@ let makeTwoOpInstr hasDest subMode fn symTable operands =
 
         match op1', op2' with
         | Ok op1'', Ok op2'' ->
-            let stall = op2Stall op2'' + if hasDest then destStall op1'' else 0
-            Ok(stall, (fn op1'' op2'', op2''))
+            match op2'' with
+            | RegisterWithRegisterShift _ when op1'' = R15 ->
+                let pos = if hasDest then "Rd" else "Rn"
+                makeFormatError (sprintf "R15 (PC) cannot be used as %s in a data processing instruction with register-controlled shift" pos) op1 ""
+            | _ ->
+                let stall = op2Stall op2'' + if hasDest then destStall op1'' else 0
+                Ok(stall, (fn op1'' op2'', op2''))
         | Error e, _ -> Error e
         | _, Error e -> Error e
 
@@ -367,7 +377,14 @@ let makeTwoOpInstr hasDest subMode fn symTable operands =
 let makeThreeOpInstr subMode fn symTable operands =
     match operands with
     | first :: restOfOps ->
-        parseRegister first |> Result.bind (fun reg -> addDestStall reg (makeTwoOpInstr false subMode (fn reg) symTable restOfOps))
+        parseRegister first
+        |> Result.bind (fun reg ->
+            addDestStall reg (makeTwoOpInstr false subMode (fn reg) symTable restOfOps)
+            |> Result.bind (fun (stall, ((instr, op2) as payload)) ->
+                match op2 with
+                | RegisterWithRegisterShift _ when reg = R15 ->
+                    makeFormatError "R15 (PC) cannot be used as Rd in a data processing instruction with register-controlled shift" first ""
+                | _ -> Ok(stall, payload)))
     | _ -> makeDPE "register, register, flexible operand" ("Not enough operands:'" + String.concat "," operands + "'")
 
 
@@ -404,6 +421,8 @@ let makeShiftInstr shiftType symTable operands updateFlags =
     | [ dst; src; shiftBy ] ->
         match parseRegister dst, parseRegister src with
         | Ok dst', Ok src' ->
+            let r15RegShiftError pos =
+                makeFormatError (sprintf "R15 (PC) cannot be used as %s in a data processing instruction with register-controlled shift" pos) "R15" ""
             let op2 =
                 let makeLitShift' (n : uint32) =
                     match n with
@@ -412,7 +431,15 @@ let makeShiftInstr shiftType symTable operands updateFlags =
                 let makeRegShift r = RegisterWithRegisterShift(src', shiftType, r)
                 match shiftBy with
                 | cons when cons.StartsWith("#") -> cons.Substring(1) |> parseNumberExpression symTable |> Result.bind (makeLitShift cons src' shiftType)
-                | reg when isRegister reg -> parseRegister reg |> Result.map makeRegShift
+                | rsStr when isRegister rsStr ->
+                    if dst' = R15 then r15RegShiftError "Rd"
+                    elif src' = R15 then r15RegShiftError "Rm (source register)"
+                    else
+                        parseRegister rsStr
+                        |> Result.bind (
+                            function | R15 -> r15RegShiftError "Rs (shift register)"
+                                     | rName -> Ok rName)
+                        |> Result.map makeRegShift
                 | reg when isValidNumericExpression symTable reg ->
                       makeFormatError "Numbers in instruction operands require '#' prefix (#22, #-1)" reg "flexop2"
                 | sftTxt -> makeFormatError "Error in shift specification - should be #N or Rx" sftTxt "flexop2"
