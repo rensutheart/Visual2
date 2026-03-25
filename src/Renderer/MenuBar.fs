@@ -317,8 +317,11 @@ let testMenu() =
 let helpMenu() =
         makeMenu "Help" (
             [
+                makeItem "VisUAL2-SU GitHub repository" Core.Option.None (runExtPage "https://github.com/rensutheart/Visual2")
+                makeItem "VisUAL2-SU supported instructions" Core.Option.None (runExtPage "https://github.com/rensutheart/Visual2/blob/master/docs/arm-instructions.md")
+                menuSeparator
+                makeItem "Original VisUAL2 web pages" Core.Option.None (runExtPage <| visualDocsPage "")
                 makeItem "UAL instruction guide" Core.Option.None (runExtPage <| visualDocsPage "guide#content")
-                makeItem "VisUAL2-SU web pages" Core.Option.None (runExtPage <| visualDocsPage "")
                 makeItem "Testbenches" Core.Option.None (runExtPage <| visualDocsPage "testbench")
                 makeItem "Official ARM documentation" Core.Option.None (runExtPage "http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0234b/i1010871.html")
                 menuSeparator
