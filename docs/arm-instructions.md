@@ -24,7 +24,7 @@ A complete reference of all ARM assembly instructions and directives supported b
 
 ## Condition Codes
 
-All instructions (except `END` and the data directives `DCD`, `DCB`, `FILL`, `EQU`) can be conditionally executed by appending a 2-letter condition suffix. If omitted, the instruction always executes (equivalent to `AL`).
+All instructions (except `END`, `ADR`, and the data directives `DCD`, `DCB`, `FILL`, `EQU`) can be conditionally executed by appending a 2-letter condition suffix. If omitted, the instruction always executes (equivalent to `AL`).
 
 | Suffix | Condition | Flags Tested |
 |--------|-----------|--------------|
@@ -141,6 +141,8 @@ The last operand of all data processing instructions uses the ARM "flexible oper
 | Register + register shift | `Rn, SHIFT Rs` | `R2, LSL R4` | Shifted register with shift amount from Rs[4:0] |
 | Register + RRX | `Rn, RRX` | `R2, RRX` | Rotate right extended (1-bit through carry) |
 
+**Restriction:** When a shift is applied, the shifted register (`Rn`) cannot be `R15` / `PC`.
+
 **Valid shift types:** `LSL`, `LSR`, `ASR`, `ROR`
 
 **Immediate literal rules:** The value must be expressible as an 8-bit number rotated right by an even amount. For example, `#0xFF` (valid), `#0x3FC` (valid: 0xFF ROR 30), but `#0x101` (invalid: not representable). When a literal is invalid, the assembler automatically tries:
@@ -241,9 +243,11 @@ QADD and QSUB do **not** modify N, Z, C, or V flags. In real ARM hardware they s
 | Post-indexed | `[Rn], #offset` | Address = Rn; Rn updated to Rn + offset |
 
 **Offset formats:**
-- Immediate: `#value` (±4092 for word, ±255 for byte)
+- Immediate: `#value` (±4092 for word, must be divisible by 4; ±1023 for byte)
 - Register: `±Rm`
 - Scaled register: `±Rm, LSL #n` / `±Rm, LSR #n` / `±Rm, ASR #n`
+
+**Endianness:** Memory is **little-endian**. For byte access (`LDRB`/`STRB`), byte 0 is bits [7:0] of the word at the aligned address, byte 1 is bits [15:8], etc.
 
 ### LDR pseudo-instruction
 
@@ -413,13 +417,13 @@ Values can be:
 
 | Directive | Syntax | Description |
 |-----------|--------|-------------|
-| `ADR` | `ADR{cond} Rd, label` | Load the address of `label` into `Rd`. |
+| `ADR` | `ADR Rd, label` | Load the address of `label` into `Rd`. |
 
 **Constraints:**
 - Byte offset (label − PC − 8) must be in range −248 to +264 if not word-aligned
 - Word offset must be in range −1016 to +1032
 - For larger offsets, use `LDR Rd, =label` instead
-- Supports all condition codes
+- Does **not** support condition codes (always executes)
 - Writing to R15 (PC) causes a 2-cycle stall
 
 ---
@@ -431,16 +435,17 @@ Operands that accept numeric values (immediates, DCD values, EQU definitions, et
 | Element | Example | Description |
 |---------|---------|-------------|
 | Decimal | `42` | |
-| Hexadecimal | `0xFF`, `0XFF` | |
-| Binary | `0b1010` | |
+| Hexadecimal | `0xFF`, `0XFF`, `&FF` | `0x` / `0X` prefix or `&` prefix |
+| Binary | `0b1010` | `0b` / `0B` prefix |
 | Label reference | `myLabel` | Resolves to the label's address or EQU value |
 | Addition | `a + b` | |
 | Subtraction | `a - b` | |
 | Multiplication | `a * b` | |
 | Unary minus | `-expr` | |
 | Parentheses | `(a + b) * c` | |
+| Underscore separator | `0xFF_FF`, `1_000_000` | Ignored — for readability only |
 
-Forward references to labels are resolved automatically via multi-pass assembly.
+Only the operators `+`, `-`, and `*` are supported (no division). Forward references to labels are resolved automatically via multi-pass assembly.
 
 ---
 
@@ -450,13 +455,15 @@ The following ARM features are **not supported** in VisUAL2:
 
 | Category | Missing Instructions/Features |
 |----------|-------------------------------|
-| Swap | `SWP`, `SWPB` |
+| Swap | `SWP`, `SWPB` (deprecated in ARMv6+) |
 | Software interrupt | `SWI` / `SVC` |
 | Coprocessor | `MCR`, `MRC`, `LDC`, `STC` |
-| Saturating arithmetic | `QADD`, `QSUB`, etc. |
 | Thumb mode | All Thumb/Thumb-2 encoding |
 | Privileged mode | `MSR`, `MRS`, mode switching |
-| Double-word | `LDRD`, `STRD` |
+| CPSR/SPSR access | No direct flag register read/write |
+| Q (saturation) flag | `QADD`/`QSUB` saturate correctly but the Q sticky flag is not tracked |
+| Division | `SDIV`, `UDIV` (ARMv7-R/ARMv7-M only) |
+| `ADR` condition codes | `ADR` always executes — condition suffixes are not supported |
 
 ---
 
@@ -470,8 +477,11 @@ Data Processing:   MOV  MVN  ADD  SUB  ADC  SBC  RSB  RSC
 
 Multiply:          MUL  MLA  UMULL  UMLAL  SMULL  SMLAL
 
+Saturating:        QADD  QSUB
+
 Memory (single):   LDR  LDRB  STR  STRB  LDR Rd,=val
                    LDRH  LDRSH  STRH  LDRSB
+                   LDRD  STRD
 
 Memory (multiple): LDM{IA|IB|DA|DB|FD|ED|FA|EA}
                    STM{IA|IB|DA|DB|FD|ED|FA|EA}
@@ -482,4 +492,4 @@ Branches:          B    BL   BX   BLX  END
 Directives:        DCD  DCB  FILL  EQU  ADR
 ```
 
-**Total:** 21 data processing + 6 multiply + 9 memory (single) + 16 memory (multiple modes) + 2 stack (PUSH/POP) + 5 branch + 5 directives = **64 base mnemonics**, expanding to hundreds of valid opcode strings with condition codes and suffixes.
+**Total:** 21 data processing + 6 multiply + 2 saturating + 11 memory (single) + 16 memory (multiple modes) + 2 stack (PUSH/POP) + 5 branch + 5 directives = **68 base mnemonics**, expanding to hundreds of valid opcode strings with condition codes and suffixes.
