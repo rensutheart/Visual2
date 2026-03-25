@@ -126,11 +126,11 @@ let (|MatchVersion|_|) txt =
        | Some [ToI aMajor; ToI aMinor; ToI aDebug;_], Some [ToI major ; ToI minor; ToI debug;_] ->
             printfn "Web latest version = %d.%d.%d" major minor debug
             match major > aMajor, minor > aMinor, debug > aDebug with
-            | true, _, _ -> (infoBox <| sprintf "There is a new major release of Visual2 (%s) with additional features, you may wish to upgrade." txt) |> Some
+            | true, _, _ -> (infoBox <| sprintf "There is a new major release of VisUAL2-SU (%s) with additional features, you may wish to upgrade." txt) |> Some
             | _, true, _ when major = aMajor -> 
-                (infoBox <| sprintf "There is a new minor release of Visual2 (%s) with new features, you should upgrade." txt) |> Some
+                (infoBox <| sprintf "There is a new minor release of VisUAL2-SU (%s) with new features, you should upgrade." txt) |> Some
             | _, false, true when major = aMajor && minor = aMinor -> 
-                (infoBox <| sprintf "There is a new release of Visual2 (%s) with bug fixes, you may wish to upgrade." txt) |> Some
+                (infoBox <| sprintf "There is a new release of VisUAL2-SU (%s) with bug fixes, you may wish to upgrade." txt) |> Some
             | _ -> None
        | _, None -> None
        | _, x -> None
@@ -153,8 +153,8 @@ let remindInExams txt =
     let remind() = 
         lastRemindTime <- Some DateTime.Now.TimeOfDay
         infoBox ("WARNING: an assessed Test is scheduled now." +
-                "If you are currently doing this you are not allowed to use Visual2. " +
-                "Please exit Visual2 immediately")
+                "If you are currently doing this you are not allowed to use VisUAL2-SU. " +
+                "Please exit VisUAL2-SU immediately")
     txt 
     |> String.splitRemoveEmptyEntries [|'\n';'\r'|]
     |> Array.iter (

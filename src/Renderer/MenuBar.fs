@@ -318,7 +318,7 @@ let helpMenu() =
         makeMenu "Help" (
             [
                 makeItem "UAL instruction guide" Core.Option.None (runExtPage <| visualDocsPage "guide#content")
-                makeItem "VisUAL2 web pages" Core.Option.None (runExtPage <| visualDocsPage "")
+                makeItem "VisUAL2-SU web pages" Core.Option.None (runExtPage <| visualDocsPage "")
                 makeItem "Testbenches" Core.Option.None (runExtPage <| visualDocsPage "testbench")
                 makeItem "Official ARM documentation" Core.Option.None (runExtPage "http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0234b/i1010871.html")
                 menuSeparator
@@ -328,10 +328,14 @@ let helpMenu() =
                 menuSeparator
                 makeItem "About" Core.option.None (fun () ->
                     printfn "Directory is:%s" (Stats.dirOfSettings())
-                    showVexAlert (sprintf "<h4>VisUAL2 ARM Simulator v%s</h4> " Refs.appVersion +
-                                "(c) 2018, Imperial College <br> Acknowledgements: Salman Arif (VisUAL), HLP 2018 class" +
+                    showVexAlert (sprintf "<h4>VisUAL2-SU &mdash; Stellenbosch University Edition</h4>" +
+                                sprintf "<p>Version %s (based on VisUAL2 v%s)</p>" Refs.appVersion Refs.baseVersion +
+                                "<p>&copy; 2018 Imperial College London (original VisUAL2)<br>" +
+                                "&copy; 2026 Rensu Theart, Stellenbosch University (SU edition)</p>" +
+                                "<p><b>Acknowledgements:</b> Salman Arif (VisUAL), HLP 2018 class" +
                                 " (F# reimplementation), with special mention to Thomas Carrotti," +
-                                " Lorenzo Silvestri, and HLP Team 10"))
+                                " Lorenzo Silvestri, and HLP Team 10.<br>" +
+                                "SU edition: expanded instruction set and ARM spec compliance fixes.</p>"))
             ])
 
 

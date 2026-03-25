@@ -1,6 +1,8 @@
-# VisUAL2 — ARM Assembly Simulator
+# VisUAL2-SU — Stellenbosch University Edition
 
-A cross-platform ARM assembly language simulator for learning and teaching ARM (ARMv4) programming. Built on the [original VisUAL2 project](https://github.com/ImperialCollegeLondon/Visual2) by Imperial College London, with expanded instruction support.
+An ARM assembly language simulator for learning and teaching ARM (ARMv4) programming.
+
+This is the **Stellenbosch University (SU) edition** of [VisUAL2](https://github.com/ImperialCollegeLondon/Visual2), originally developed by Imperial College London. It is based on VisUAL2 v1.06.10 with an expanded instruction set, ARM spec compliance fixes, and additional features.
 
 ## Quick Start
 
@@ -10,43 +12,43 @@ Go to the [**Releases**](https://github.com/rensutheart/Visual2/releases) page a
 
 | OS | File | Notes |
 |----|------|-------|
-| Windows | `visual2-win32-x64.zip` | Windows 7+ (64-bit) |
-| Linux | `visual2-linux-x64.zip` | 64-bit, most distros |
-| macOS | `visual2-osx.dmg` | macOS 10.10+ (Intel) |
+| Windows | `VisUAL2-SU-win32-x64.zip` | Windows 7+ (64-bit) |
+| Linux | `VisUAL2-SU-linux-x64.zip` | 64-bit, most distros |
+| macOS | `visual2-su-osx.dmg` | macOS 10.10+ (Intel) |
 
 #### Windows
 
-1. Download `visual2-win32-x64.zip` from [Releases](https://github.com/rensutheart/Visual2/releases)
+1. Download `VisUAL2-SU-win32-x64.zip` from [Releases](https://github.com/rensutheart/Visual2/releases)
 2. Extract the zip to any folder
-3. Double-click `VisUAL2.exe`
+3. Double-click `VisUAL2-SU.exe`
 
 #### Linux
 
-1. Download `visual2-linux-x64.zip` from [Releases](https://github.com/rensutheart/Visual2/releases)
+1. Download `VisUAL2-SU-linux-x64.zip` from [Releases](https://github.com/rensutheart/Visual2/releases)
 2. Extract:
    ```bash
-   unzip visual2-linux-x64.zip
-   cd VisUAL2-linux-x64
-   chmod +x VisUAL2
-   ./VisUAL2
+   unzip VisUAL2-SU-linux-x64.zip
+   cd VisUAL2-SU-linux-x64
+   chmod +x VisUAL2-SU
+   ./VisUAL2-SU
    ```
 
 #### macOS
 
-1. Download `visual2-osx.dmg` from [Releases](https://github.com/rensutheart/Visual2/releases) (when available), or the zip
-2. If using the DMG: open it and drag VisUAL2 to Applications
+1. Download `visual2-su-osx.dmg` from [Releases](https://github.com/rensutheart/Visual2/releases) (when available), or the zip
+2. If using the DMG: open it and drag VisUAL2-SU to Applications
 3. If using the zip: extract and run:
    ```bash
-   open -a VisUAL2.app
+   open -a VisUAL2-SU.app
    ```
 
 > **Note:** macOS may show a security warning for unsigned apps. Go to **System Preferences → Security & Privacy → General** and click **Open Anyway**.
 
 ---
 
-## What Is VisUAL2?
+## What Is VisUAL2-SU?
 
-VisUAL2 is a simulator for 32-bit ARM assembly language. It lets you:
+VisUAL2-SU is a simulator for 32-bit ARM assembly language. It lets you:
 
 - **Write** ARM assembly in a syntax-highlighted editor with autocomplete
 - **Step through** instructions one at a time, or run to completion
@@ -60,7 +62,7 @@ It does **not** run on real ARM hardware — it simulates the ARM instruction se
 
 ## Supported Instructions
 
-VisUAL2 supports a large subset of the ARM instruction set. For full details with syntax, constraints, and examples, see the [**Supported ARM Instructions**](docs/arm-instructions.md) reference.
+VisUAL2-SU supports a large subset of the ARM instruction set. For full details with syntax, constraints, and examples, see the [**Supported ARM Instructions**](docs/arm-instructions.md) reference.
 
 ### Summary
 
@@ -115,7 +117,7 @@ See [docs/arm-instructions.md](docs/arm-instructions.md) for full details.
 
 ## Writing Your First Program
 
-1. Launch VisUAL2
+1. Launch VisUAL2-SU
 2. Type the following in the editor:
 
 ```arm
@@ -141,7 +143,7 @@ See [docs/arm-instructions.md](docs/arm-instructions.md) for full details.
 
 ## Building from Source (For Developers)
 
-If you want to modify VisUAL2 or build it yourself, see the [original project wiki](https://github.com/ImperialCollegeLondon/Visual2/wiki) for background. The build requires:
+If you want to modify VisUAL2-SU or build it yourself, see the [original project wiki](https://github.com/ImperialCollegeLondon/Visual2/wiki) for background. The build requires:
 
 - [Node.js](https://nodejs.org/) and [Yarn](https://yarnpkg.com/)
 - [.NET Core SDK 2.1](https://dotnet.microsoft.com/download/dotnet/2.1)
@@ -170,6 +172,10 @@ yarn pack-osx       # macOS binary → dist/ (macOS host only for DMG)
 
 ## Credits
 
-This project is a fork of [VisUAL2](https://github.com/ImperialCollegeLondon/Visual2) by Imperial College London. See the original [acknowledgements](https://github.com/ImperialCollegeLondon/Visual2/wiki/Acknowledgements).
+This is the **Stellenbosch University (SU) edition** of [VisUAL2](https://github.com/ImperialCollegeLondon/Visual2), originally developed at Imperial College London. Based on VisUAL2 v1.06.10.
+
+**SU edition by:** Rensu Theart, Stellenbosch University — expanded instruction set (PUSH/POP, BX/BLX, half-word, multiply, saturating arithmetic, LDRD/STRD), ARM spec compliance fixes, and documentation.
+
+**Original acknowledgements:** Salman Arif (VisUAL), HLP 2018 class (F# reimplementation), Thomas Carrotti, Lorenzo Silvestri, and HLP Team 10. See the original [acknowledgements](https://github.com/ImperialCollegeLondon/Visual2/wiki/Acknowledgements).
 
 Built with [F#](https://fsharp.org/), [Fable](https://fable.io/), [Electron](https://electronjs.org/), and [Monaco Editor](https://microsoft.github.io/monaco-editor/).

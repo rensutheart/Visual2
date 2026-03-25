@@ -20,8 +20,8 @@ open System.Diagnostics
 
 let printHelpMessage() =
     printfn """
-Visual2 command line options
-----------------------------
+VisUAL2-SU command line options
+-------------------------------
 -h, --help      - print this help message
 -d, --debug     - run with browser dev tools initially open, for startup debug info logged to console
                 - <F12> to open or close dev tools after startup

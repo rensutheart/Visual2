@@ -1,6 +1,8 @@
-# VisUAL2 — Supported ARM Instructions
+# VisUAL2-SU — Supported ARM Instructions
 
-A complete reference of all ARM assembly instructions and directives supported by the VisUAL2 simulator.
+A complete reference of all ARM assembly instructions and directives supported by the VisUAL2-SU simulator.
+
+VisUAL2-SU emulates **32-bit ARM (ARMv4)** — all registers are 32 bits wide, memory addresses are 32-bit, and no AArch64 (64-bit ARM) features are supported.
 
 > **Source files:** Instruction definitions live in `src/Emulator/` — specifically `DP.fs`, `Multiply.fs`, `Memory.fs`, `Branch.fs`, and `Misc.fs`.
 
@@ -49,9 +51,11 @@ All instructions (except `END` and the data directives `DCD`, `DCB`, `FILL`, `EQ
 
 ## Registers
 
+All 16 registers are **32 bits** wide (ARMv4 architecture). Values are unsigned 32-bit integers (`0x00000000`–`0xFFFFFFFF`); signed interpretation is applied only where relevant (e.g., `ASR`, `SMULL`, `QADD`).
+
 | Name | Alias | Description |
 |------|-------|-------------|
-| `R0`–`R12` | — | General-purpose registers |
+| `R0`–`R12` | — | General-purpose 32-bit registers |
 | `R13` | `SP` | Stack pointer |
 | `R14` | `LR` | Link register (return address for `BL`) |
 | `R15` | `PC` | Program counter (reads as current instruction + 8 due to pipelining) |
@@ -451,7 +455,7 @@ Only the operators `+`, `-`, and `*` are supported (no division). Forward refere
 
 ## Notable Limitations
 
-The following ARM features are **not supported** in VisUAL2:
+VisUAL2 targets the **32-bit ARMv4 instruction set**. The following ARM features are **not supported**:
 
 | Category | Missing Instructions/Features |
 |----------|-------------------------------|
