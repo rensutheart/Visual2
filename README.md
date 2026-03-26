@@ -267,6 +267,81 @@ This is the **Stellenbosch University (SU) edition** of [VisUAL2](https://github
 
 **SU edition by:** Rensu Theart, Stellenbosch University — expanded instruction set (PUSH/POP, BX/BLX, half-word, multiply, saturating arithmetic, LDRD/STRD), ARM spec compliance fixes, memory-mapped pixel display, and documentation.
 
+---
+
+## Changelog (SU Edition)
+
+All changes relative to the original [VisUAL2 v1.06.10](https://github.com/ImperialCollegeLondon/Visual2) from Imperial College London.
+
+### v2.2.0-SU
+
+**Breakpoints**
+- Toggle breakpoints by clicking the glyph margin (red dot indicator)
+- Breakpoint validation: cannot set on comment-only or label-only lines
+- Execute-then-stop semantics with red "Breakpoint Reached" status
+- Breakpoint line highlighted with red/pink background
+
+**Execution visualization**
+- Current instruction line coloured by condition: amber (unconditional), green (condition met), red (not met)
+- Status flags: only the flags relevant to the condition are highlighted (e.g., BNE highlights only Z)
+- Relevant flags coloured green (condition met) or red (not met)
+- Changed registers highlighted in yellow after each step
+- Changed flags highlighted in yellow for non-conditional instructions
+- Next-instruction arrow only shown when a branch occurs (not on sequential execution)
+- END instruction now properly highlighted
+
+**Branch tooltip & LR return line**
+- "Branch" info button appears on branch instructions (like existing Pointer/Stack/Shift buttons)
+- Shows branch condition, source address, destination address, and destination line number
+- When LR holds a valid code address, the return line is highlighted in purple
+
+**Editor improvements**
+- Full-width line highlights extending across margin and code area
+- Cursor no longer jumps when clicking the glyph margin to toggle breakpoints
+- Reduced stepping-mode overlay brightness for better contrast
+
+### v2.1.0-SU
+
+**Memory-mapped pixel display**
+- Built-in pixel display for graphics and animation exercises
+- Grid sizes: 16×16, 32×32, or 64×64 pixels using VGA 256-colour palette
+- Animation via `MOV R10, #1` breakpoint trigger
+- Display tab with continue, clear, and auto-animate controls
+
+### v2.0.1-SU
+
+**GNU ARM comment support**
+- `//` line comments and `/* */` block comments alongside existing `;` comments
+
+**VisUAL Classic colour theme**
+- Default dark theme matching the original VisUAL look
+- Theme selection and defaults
+
+### v2.0.0-SU
+
+**Expanded instruction set** (added to the original VisUAL2)
+- `PUSH` / `POP` — stack operations
+- `BX` / `BLX` — branch and exchange
+- `LDRH` / `LDRSH` / `STRH` / `LDRSB` — half-word and signed byte memory access
+- `MUL` / `MLA` / `UMULL` / `UMLAL` / `SMULL` / `SMLAL` — multiply instructions
+- `QADD` / `QSUB` — saturating arithmetic
+- `LDRD` / `STRD` — double-word memory access
+
+**ARM spec compliance fixes**
+- ADR condition codes and byte offset range (±4095)
+- R15 blocked in register-controlled shift positions
+- Various edge-case fixes
+
+**Rebranding**
+- Renamed to VisUAL2-SU (Stellenbosch University Edition)
+- Help menu links to SU repository and instructions
+
+**Documentation**
+- Comprehensive supported ARM instructions reference
+- Student-facing README
+
+---
+
 **Original acknowledgements:** Salman Arif (VisUAL), HLP 2018 class (F# reimplementation), Thomas Carrotti, Lorenzo Silvestri, and HLP Team 10. See the original [acknowledgements](https://github.com/ImperialCollegeLondon/Visual2/wiki/Acknowledgements).
 
 Built with [F#](https://fsharp.org/), [Fable](https://fable.io/), [Electron](https://electronjs.org/), and [Monaco Editor](https://microsoft.github.io/monaco-editor/).
