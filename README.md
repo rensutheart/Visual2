@@ -273,6 +273,16 @@ This is the **Stellenbosch University (SU) edition** of [VisUAL2](https://github
 
 All changes relative to the original [VisUAL2 v1.06.10](https://github.com/ImperialCollegeLondon/Visual2) from Imperial College London.
 
+### v2.2.1-SU
+
+**UI Polish**
+- Register aliases shown: R13/SP, R14/LR, R15/PC
+- CPSR label added next to status flags
+- Run and Reset buttons now include icons (▶ and ↺)
+- Wider register label column for consistent appearance
+- Brighter LR return line highlight (more visible purple)
+- Display tab tooltip added
+
 ### v2.2.0-SU
 
 **Breakpoints**
