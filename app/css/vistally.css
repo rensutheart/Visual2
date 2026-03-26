@@ -83,7 +83,7 @@
 }
 
 .btn-reg, .btn-reg:active {
-    width: 15%;
+    width: 22%;
     font-size: 13px;
 }
 
@@ -273,11 +273,11 @@
 }
 
 .editor-line-highlight-lr {
-    background-color: rgba(74, 57, 115, 0.4);
+    background-color: rgba(120, 70, 180, 0.45);
 }
 
 .editor-line-highlight-lr-margin {
-    background-color: rgba(74, 57, 115, 0.4);
+    background-color: rgba(120, 70, 180, 0.45);
 }
 
 .info-button-branch {

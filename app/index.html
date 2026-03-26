@@ -30,12 +30,12 @@
                 <!-- btn-group -->
 
                 <button id="run" class="btn btn-fixed btn-default button-run">
-                    Run
+                    <span class="icon icon-play"></span> Run
                 </button>
                 <!-- run btn -->
 
-                <button id="reset" class="btn btn-default">
-                    Reset
+                <button id="reset" class="btn btn-default" style="padding: 2px 10px;">
+                    <span class="icon icon-arrows-ccw" style="margin-right: 3px;"></span> Reset
                 </button>
 
                 <button id="stepb" class="btn btn-default button-back">
@@ -175,19 +175,19 @@
                             </li>
                             <li class="list-group-item">
                                 <div class="btn-group full-width">
-                                    <button id="BR13" class="btn btn-reg">R13</button>
+                                    <button id="BR13" class="btn btn-reg">R13/SP</button>
                                     <span id="R13" class="btn btn-reg-con selectable-text">0x0</span>
                                 </div>
                             </li>
                             <li class="list-group-item">
                                 <div class="btn-group full-width">
-                                    <button id="BR14" class="btn btn-reg">R14</button>
+                                    <button id="BR14" class="btn btn-reg">R14/LR</button>
                                     <span id="R14" class="btn btn-reg-con selectable-text">0x0</span>
                                 </div>
                             </li>
                             <li class="list-group-item">
                                 <div class="btn-group full-width">
-                                    <button id="BR15" class="btn btn-reg reg">R15</button>
+                                    <button id="BR15" class="btn btn-reg reg">R15/PC</button>
                                     <span id="R15" class="btn btn-reg-con selectable-text">0x0</span>
                                 </div>
                             </li>
@@ -272,6 +272,7 @@
                     <!-- window-content -->
                     <footer id="viewer-footer" class="toolbar toolbar-footer">
                         <div id="flags" class="pull-right" style="margin: 5px">
+                            <span style="font-size: 13px; font-weight: 600; color: #555; margin-right: 6px; vertical-align: middle;">CPSR</span>
                             <div class="btn-group btn-flag-group">
                                 <button class="btn btn-flag">N</button>
                                 <button id="flag_N" class="btn btn-flag-con">0</button>
