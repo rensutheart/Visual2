@@ -133,9 +133,9 @@ See [docs/arm-instructions.md](docs/arm-instructions.md) for full details.
 
 ### Tips
 
-- Every program must end with `END`
+- `END` is optional (programs will stop after the last instruction)
 - Labels go at the start of a line (no indentation), instructions are indented
-- Comments start with `;`
+- Comments start with `;` — GNU syntax `//` and `/* */` is also supported
 - Immediate values need a `#` prefix: `#42`, `#0xFF`, `#&1A`
 - Use `Ctrl+Shift+I` to open the developer console for debug output
 
