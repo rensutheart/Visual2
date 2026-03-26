@@ -12,6 +12,7 @@ open EEExtensions
 open Tabs
 open Views
 open CommonData
+open CommonLex
 open ParseTop
 open ExecutionTop
 open Errors
@@ -101,21 +102,48 @@ let getMemoryMap() : Map<WAddr, MemLoc<CondInstr * int>> =
     |> List.map (fun (a, v) -> WA a, DataLoc v)
     |> Map.ofList
 
-/// Set current stored register values
-let setRegs regs =
+/// Set current stored register values, highlighting changed registers
+let setRegs regs (changedRegs : CommonData.RName list) =
+    let changedSet = changedRegs |> Set.ofList
     regMap <- regs
-    updateRegisters()
+    Map.iter (fun rn v -> Refs.setRegister rn v (Set.contains rn changedSet)) regMap
 
 /// Get current stored register values
 let getRegs() = regMap
 
-/// Set all current stored flags
-let setFlags (uFlags : DP.UFlags) =
+/// Set all current stored flags, with conditional instruction context coloring
+let setFlags (uFlags : DP.UFlags) (condContext : (CommonLex.Condition * CommonData.DataPath) option) =
     let flags = uFlags.F
-    setFlag "N" flags.N uFlags.NZU
-    setFlag "C" flags.C uFlags.CU
-    setFlag "Z" flags.Z uFlags.NZU
-    setFlag "V" flags.V uFlags.VU
+    match condContext with
+    | Some(cond, dp) when cond <> Cal ->
+        // Conditional instruction: color only the flags relevant to this condition
+        let condMet = Helpers.condExecute cond dp
+        let color = if condMet then "background: #0FC8A2" else "background: #DC737A"
+        // Determine which flags are relevant to this condition
+        let relevantN, relevantZ, relevantC, relevantV =
+            match cond with
+            | Ceq | Cne ->                 false, true,  false, false  // Z
+            | Cmi | Cpl ->                 true,  false, false, false  // N
+            | Chs | Clo ->                 false, false, true,  false  // C
+            | Cvs | Cvc ->                 false, false, false, true   // V
+            | Chi | Cls ->                 false, true,  true,  false  // C, Z
+            | Cge | Clt ->                 true,  false, false, true   // N, V
+            | Cgt | Cle ->                 true,  true,  false, true   // N, Z, V
+            | Cal | Cnv ->                 false, false, false, false
+        let flagEl = Refs.flag
+        let setOne name value relevant =
+            (flagEl name).innerHTML <- sprintf "%i" (if value then 1 else 0)
+            (flagEl name).setAttribute ("style", if relevant then color else "")
+        setOne "N" flags.N relevantN
+        setOne "Z" flags.Z relevantZ
+        setOne "C" flags.C relevantC
+        setOne "V" flags.V relevantV
+    | _ ->
+        // Non-conditional: yellow/amber if changed
+        setFlag "N" flags.N uFlags.NZU
+        setFlag "C" flags.C uFlags.CU
+        setFlag "Z" flags.Z uFlags.NZU
+        setFlag "V" flags.V uFlags.VU
 
 /// Get all current stored flags
 let getFlags() =
@@ -177,9 +205,16 @@ let showInfoFromCurrentMode() =
         memoryMap <- makeDataLocMemoryMap dp.MM
         if currentView = Refs.Views.Memory || isStopped then
             updateMemory()
-        setRegs dp.Regs
-        setFlags uFl
-        updateRegisters()
+        setRegs dp.Regs uFl.RegU
+        // Determine conditional context from last executed instruction
+        let condContext =
+            match ri.LastDP with
+            | Some(ldp, _) ->
+                match Map.tryFind (WA ldp.Regs.[R15]) ri.IMem with
+                | Some(condInstr, _) when condInstr.Cond <> Cal -> Some(condInstr.Cond, ldp)
+                | _ -> None
+            | None -> None
+        setFlags uFl condContext
         // Only update display during intermediate GUI refreshes if we are NOT
         // in DisplayBreak mode. In DisplayBreak mode the display is rendered
         // only at the R10 trigger point, avoiding mid-frame tearing on larger grids.
@@ -191,17 +226,53 @@ let showInfoFromCurrentMode() =
 
 /// Apply GUI decorations to instruction line of last PC and current PC.
 /// Move current instruction line to middle of window if not visible.
+/// When classname is "editor-line-highlight", the highlight colour is determined
+/// by whether the instruction was conditional and whether its condition was met.
 let highlightCurrentAndNextIns classname pInfo tId =
     removeEditorDecorations tId
     Tooltips.deleteAllContentWidgets()
+    let mutable lastPC = None
     match pInfo.LastDP with
     | None -> ()
     | Some(dp, _uFl) ->
+        lastPC <- Some dp.Regs.[R15]
         match Map.tryFind (WA dp.Regs.[R15]) pInfo.IMem with
         | Some(condInstr, lineNo) ->
-            highlightLine tId lineNo classname
+            let effectiveClass =
+                if classname <> "editor-line-highlight" then classname
+                elif condInstr.Cond = Cal then "editor-line-highlight"
+                elif Helpers.condExecute condInstr.Cond dp then "editor-line-highlight-cond-true"
+                else "editor-line-highlight-cond-false"
+            highlightLine tId lineNo effectiveClass
             Editors.revealLineInWindow tId lineNo
             Editors.toolTipInfo (lineNo - 1, "top") dp condInstr
+            // Branch tooltip: show branch info button on branch instructions
+            match condInstr.InsExec with
+            | IBRANCH branchInstr when branchInstr <> Branch.END ->
+                let condStr =
+                    if condInstr.Cond = Cal then "N/A"
+                    else
+                        let condMet = Helpers.condExecute condInstr.Cond dp
+                        let condName = condInstr.InsOpCode.[condInstr.InsOpCode.Length - 2 ..]
+                        sprintf "%s (%s)" condName (if condMet then "True" else "False")
+                let srcAddr = dp.Regs.[R15]
+                let destPC = (fst pInfo.dpCurrent).Regs.[R15]
+                let destLineStr =
+                    match Map.tryFind (WA destPC) pInfo.IMem with
+                    | Some(_, dLine) -> sprintf "%d" dLine
+                    | None -> "N/A"
+                let TROWS s =
+                    (List.map (fun s -> s |> Refs.toDOM |> Refs.TD) >> Refs.TROW) s
+                let tipDom =
+                    Refs.TABLE [] [
+                        TROWS [ "Branch condition:"; condStr ]
+                        TROWS [ "Source Address:"; sprintf "0x%X" srcAddr ]
+                        TROWS [ "Destination Address:"; sprintf "0x%X" destPC ]
+                        TROWS [ "Destination Line:"; destLineStr ]
+                    ]
+                let hOffset = Editors.findCodeEnd (lineNo - 1)
+                Tooltips.makeEditorInfoButton Tooltips.lineTipsClickable (hOffset, lineNo, "top") "Branch" tipDom
+            | _ -> ()
         | Option.None
         | Some _ ->
             if dp.Regs.[R15] <> 0xFFFFFFFCu then
@@ -210,10 +281,18 @@ let highlightCurrentAndNextIns classname pInfo tId =
                 () // special case of return from testbench call
     let pc = (fst pInfo.dpCurrent).Regs.[R15]
     match Map.tryFind (WA pc) pInfo.IMem with
-    | Some(condInstr, lineNo) ->
-        highlightNextInstruction tId lineNo
-        Editors.toolTipInfo (lineNo - 1, "bottom") (fst pInfo.dpCurrent) condInstr
+    | Some(_condInstr, lineNo) ->
+        // Only show next-instruction arrow if next PC is not previous PC + 4 (i.e., a branch occurred)
+        match lastPC with
+        | Some prevPC when pc = prevPC + 4u -> ()
+        | _ -> highlightNextInstruction tId lineNo
     | _ -> ()
+    // Highlight the LR return line in purple when LR has a valid code address
+    let lr = (fst pInfo.dpCurrent).Regs.[R14]
+    if lr <> 0u then
+        match Map.tryFind (WA lr) pInfo.IMem with
+        | Some(_, lrLineNo) -> highlightLine tId lrLineNo "editor-line-highlight-lr"
+        | None -> ()
 
 
 let handleTest (pInfo : RunInfo) =
@@ -269,6 +348,16 @@ let UpdateGUIFromRunState(pInfo : RunInfo) =
 
     | PSBreak ->
         setMode (ActiveMode(Paused, pInfo))
+        // Check if this was a line breakpoint hit (check LastDP since line already executed)
+        let isBreakpoint =
+            match pInfo.LastDP with
+            | Some(dp, _) ->
+                match Map.tryFind (WA dp.Regs.[R15]) pInfo.IMem with
+                | Some(_, lineNo) -> Set.contains lineNo pInfo.Breakpoints
+                | _ -> false
+            | None -> false
+        if isBreakpoint then
+            Tabs.setStatusButton "Breakpoint Reached" "btn-negative"
         highlightCurrentAndNextIns "editor-line-highlight" (pInfo) currentFileTabId
         enableEditors()
 
@@ -335,7 +424,8 @@ let tryParseAndIndentCode tId =
 
 
 let getRunInfoFromImage bc (lim : LoadImage) =
-    getRunInfoFromImageWithInits bc lim (getRegs()) (getFlags()) memoryMap lim.Mem
+    let ri = getRunInfoFromImageWithInits bc lim (getRegs()) (getFlags()) memoryMap lim.Mem
+    { ri with Breakpoints = Refs.getBreakpoints currentFileTabId }
 
 
 /// Execution Step number at which GUI was last updated
@@ -504,11 +594,13 @@ let runEditorTab breakCondition steps =
             removeEditorDecorations tId
             match tryParseAndIndentCode tId with
             | Some(lim, _) ->
+                Editors.reapplyBreakpointDecorations tId
                 disableEditors()
                 let ri = lim |> getRunInfoFromImage breakCondition
                 setCurrentModeActiveFromInfo RunState.Running ri
                 asmStepDisplay breakCondition steps ri
-            | _ -> ()
+            | _ ->
+                Editors.reapplyBreakpointDecorations tId
         | ActiveMode(RunState.Paused, ri) ->
             asmStepDisplay breakCondition (steps + ri.StepsDone) ri
         | ActiveMode _

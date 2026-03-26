@@ -32,11 +32,10 @@ let setFlag (id : string) (value : bool) (hasChanged : bool) =
             el.innerHTML <- sprintf "%i" 0
         | true ->
             el.innerHTML <- sprintf "%i" 1
-    match hasChanged with
-        | false ->
-            el.setAttribute ("style", "background: #fcfcfc")
-        | true ->
-            el.setAttribute ("style", "background: #4285f4")
+    if hasChanged then
+        el.setAttribute ("style", "background: #F7E1A0")
+    else
+        el.setAttribute ("style", "")
 
 
 /// initialise stored and displayed flags to 0
@@ -47,7 +46,7 @@ let resetFlags() =
     setFlag "V" false false
 
 let setStatusButton msg (className : string) =
-    let classes = [| "btn-positive"; "btn-negative"; "btn-primary" |]
+    let classes = [| "btn-positive"; "btn-negative"; "btn-primary"; "btn-warning" |]
     Refs.statusBar.classList.remove classes
     Refs.statusBar.classList.add (className)
     Refs.statusBar.innerHTML <- msg
@@ -63,6 +62,7 @@ let setNoStatus() =
     Refs.statusBar.classList.remove ("btn-negative")
     Refs.statusBar.classList.remove ("btn-positive")
     Refs.statusBar.classList.remove ("btn-primary")
+    Refs.statusBar.classList.remove ("btn-warning")
     Refs.statusBar.innerHTML <- "-"
 
 let setRunButton (mode : ExecutionTop.RunMode) =
@@ -234,6 +234,16 @@ let createNamedFileTab fName fPath =
                     // Whenever the content of this editor changes
             editor?onDidChangeModelContent (fun _ ->
                 setTabUnsaved id // Set the unsaved icon in the tab
+                ) |> ignore
+            // Click on glyph margin to toggle breakpoints
+            editor?onMouseDown (fun e ->
+                let targetType : int = e?target?``type``
+                // Monaco MouseTargetType: 2 = GUTTER_GLYPH_MARGIN, 3 = GUTTER_LINE_NUMBERS
+                if targetType = 2 || targetType = 3 then
+                    let lineNo : int = e?target?position?lineNumber
+                    Editors.toggleBreakpoint id lineNo
+                    e?event?preventDefault () |> ignore
+                    e?event?stopPropagation () |> ignore
                 ) |> ignore
             Refs.editors <- Map.add id editor Refs.editors
 

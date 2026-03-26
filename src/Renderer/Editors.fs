@@ -41,6 +41,7 @@ let editorOptions (readOnly : bool) =
                         "automaticLayout" ==> true;
                         "minimap" ==> createObj [ "enabled" ==> false ];
                         "glyphMargin" ==> true
+                        "renderLineHighlight" ==> "all"
               ]
 
 
@@ -87,6 +88,9 @@ let enableEditors() =
 let mutable decorations : obj list = []
 let mutable lineDecorations : obj list = []
 
+/// Breakpoint decoration handles: lineNo -> decoration handle
+let mutable bpDecorationHandles : Map<int, obj> = Map.empty
+
 [<Emit "new monaco.Range($0,$1,$2,$3)">]
 let monacoRange _ _ _ _ = jsNative
 
@@ -99,11 +103,83 @@ let lineDecoration _editor _decorations _range _name = jsNative
 let removeDecorations _editor _decorations =
     jsNative
 
-// Remove all text decorations associated with an editor
+// Remove all text decorations associated with an editor (NOT breakpoint decorations)
 let removeEditorDecorations tId =
     if tId <> -1 then
         List.iter (fun x -> removeDecorations Refs.editors.[tId] x) decorations
         decorations <- []
+
+/// Add a breakpoint glyph decoration to a line
+let addBreakpointGlyph tId lineNo =
+    let editor = Refs.editors.[tId]
+    let handle = lineDecoration editor
+                    []
+                    (monacoRange lineNo 1 lineNo 1)
+                    (createObj [
+                        "isWholeLine" ==> true
+                        "glyphMarginClassName" ==> "editor-glyph-margin-breakpoint"
+                        "className" ==> "editor-line-breakpoint"
+                        "marginClassName" ==> "editor-line-breakpoint-margin"
+                    ])
+    bpDecorationHandles <- Map.add lineNo handle bpDecorationHandles
+
+/// Remove a breakpoint glyph decoration from a line
+let removeBreakpointGlyph tId lineNo =
+    match Map.tryFind lineNo bpDecorationHandles with
+    | Some handle ->
+        removeDecorations Refs.editors.[tId] handle
+        bpDecorationHandles <- Map.remove lineNo bpDecorationHandles
+    | None -> ()
+
+/// Remove all breakpoint decorations
+let removeAllBreakpointGlyphs tId =
+    if tId <> -1 then
+        bpDecorationHandles |> Map.iter (fun _ handle ->
+            removeDecorations Refs.editors.[tId] handle)
+        bpDecorationHandles <- Map.empty
+
+/// Reapply all breakpoint decorations for a tab (e.g. after editor content changes)
+let reapplyBreakpointDecorations tId =
+    removeAllBreakpointGlyphs tId
+    Refs.getBreakpoints tId |> Set.iter (addBreakpointGlyph tId)
+
+/// Toggle a breakpoint on a given line (only if the line contains code)
+let toggleBreakpoint tId lineNo =
+    let current = Refs.getBreakpoints tId
+    if Set.contains lineNo current then
+        Refs.breakpoints <- Map.add tId (Set.remove lineNo current) Refs.breakpoints
+        removeBreakpointGlyph tId lineNo
+    else
+        let editor = Refs.editors.[tId]
+        let model = editor?getModel ()
+        let lineText : string = model?getLineContent (lineNo)
+        // Strip comments: /* ... */, //, and ;
+        let stripped =
+            let mutable s = lineText
+            // Remove /* ... */ block comments
+            while s.Contains("/*") && s.Contains("*/") do
+                let startIdx = s.IndexOf("/*")
+                let endIdx = s.IndexOf("*/")
+                if endIdx > startIdx then
+                    s <- s.[..startIdx-1] + s.[endIdx+2..]
+            // Remove // line comment
+            match s.IndexOf("//") with
+            | i when i >= 0 -> s <- s.[..i-1]
+            | _ -> ()
+            // Remove ; line comment
+            match s.IndexOf(";") with
+            | i when i >= 0 -> s <- s.[..i-1]
+            | _ -> ()
+            s.Trim()
+        // A label-only line is a single token starting with a letter, rest alphanumeric/underscore
+        let isLabelOnly (s : string) =
+            s.Length > 0 &&
+            not (s.Contains(" ") || s.Contains("\t")) &&
+            System.Char.IsLetter s.[0] &&
+            s |> Seq.forall (fun ch -> System.Char.IsLetterOrDigit ch || ch = '_')
+        if stripped <> "" && not (isLabelOnly stripped) then
+            Refs.breakpoints <- Map.add tId (Set.add lineNo current) Refs.breakpoints
+            addBreakpointGlyph tId lineNo
 
 let editorLineDecorate editor number decoration (rangeOpt : (int * int) option) =
     let model = editor?getModel ()
@@ -124,7 +200,8 @@ let highlightLine tId number className =
         (createObj [
             "isWholeLine" ==> true
             "isTrusted" ==> true
-            "inlineClassName" ==> className
+            "className" ==> className
+            "marginClassName" ==> (className + "-margin")
         ])
         None
 

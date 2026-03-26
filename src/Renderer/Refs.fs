@@ -614,6 +614,15 @@ let mutable displayAutoRefreshTimerId : int option = None
 /// Current state of simulator
 let mutable runMode : ExecutionTop.RunMode = ExecutionTop.ResetMode
 
+/// Breakpoints per tab: tabId -> set of 1-based line numbers
+let mutable breakpoints : Map<int, Set<int>> = Map.empty
+
+/// Get breakpoints for a given tab
+let getBreakpoints tId =
+    match Map.tryFind tId breakpoints with
+    | Some s -> s
+    | None -> Set.empty
+
 /// Global debug level set from main process.
 /// 0 => production. 1 => development. 2 => debug parameter.
 let mutable debugLevel = 0
@@ -646,12 +655,16 @@ let currentTabText() =
 
 
 
-let setRegister (id : CommonData.RName) (value : uint32) =
+let setRegister (id : CommonData.RName) (value : uint32) (changed : bool) =
     let el = register id.RegNum
     el.innerHTML <- formatter currentRep value
+    if changed then
+        el.setAttribute ("style", "background: #F7E1A0")
+    else
+        el.setAttribute ("style", "")
 
 let updateRegisters() =
-    Map.iter setRegister regMap
+    Map.iter (fun rn v -> setRegister rn v false) regMap
 
 let resetRegs() =
     [ 0..15 ]
@@ -659,6 +672,6 @@ let resetRegs() =
         setRegister (CommonData.register x) (
             match x with
             | 13 -> 0xFF000000u
-            | _ -> 0u))
+            | _ -> 0u) false)
     |> ignore
 

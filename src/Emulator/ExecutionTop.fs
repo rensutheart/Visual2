@@ -169,6 +169,7 @@ type RunInfo = {
     TestState : TestBenchState
     Coverage : int Set
     BreakCond : BreakCondition
+    Breakpoints : int Set
     }
 
 
@@ -496,6 +497,14 @@ let dataPathStep (dp : DataPath, code : CodeMemory<CondInstr * int>) =
                 executeADR adrInstr dp' |> Ok |> noFlagChange
             | IMISC x -> (``Run time error`` (dp.Regs.[R15], sprintf "Can't execute %A" x)) |> Error
             | ParseTop.EMPTY _ -> failwithf "Shouldn't be executing empty instruction"
+            // Compute changed registers by diffing before/after, ensuring RegU is always correct
+            |> Result.map (fun (dpOut, uF) ->
+                let changed =
+                    dp'.Regs
+                    |> Map.toList
+                    |> List.choose (fun (rn, v) ->
+                        if dpOut.Regs.[rn] <> v && rn <> R15 then Some rn else None)
+                dpOut, { uF with RegU = changed })
             |> fun res -> (line, Some condIns), res
 
 
@@ -552,7 +561,10 @@ let asmStep (numSteps : int64) (ri : RunInfo) =
                         running <- false
                 | _ -> ()
 
-        let runFrom = match ri.BreakCond with | NoBreak | DisplayBreak -> numSteps | _ -> ri.StepsDone
+        let hasBreakpoints = not (Set.isEmpty ri.Breakpoints)
+        let runFrom =
+            if hasBreakpoints then ri.StepsDone
+            else match ri.BreakCond with | NoBreak | DisplayBreak -> numSteps | _ -> ri.StepsDone
         let (future, past) = List.partition (fun (st : Step) -> st.NumDone >= runFrom) ri.History
         let mutable history = past
         match past with
@@ -573,9 +585,18 @@ let asmStep (numSteps : int64) (ri : RunInfo) =
             match stepRes with
             | Result.Ok(dp', uF') ->
                 lastDP <- Some dp; dp <- dp', uF'; stepsDone <- stepsDone + 1L;
+                // Line breakpoint: stop AFTER executing the breakpointed instruction
+                if hasBreakpoints && stepsDone > ri.StepsDone then
+                    match lastDP with
+                    | Some(ldp, _) ->
+                        match Map.tryFind (WA ldp.Regs.[R15]) ri.IMem with
+                        | Some(_, lineNo) when Set.contains lineNo ri.Breakpoints ->
+                            running <- false; state <- PSBreak
+                        | _ -> ()
+                    | None -> ()
                 if ri.BreakCond = DisplayBreak && (fst dp).Regs.[R10] = 1u then
                     running <- false; state <- PSBreak
-            | Result.Error EXIT -> running <- false; state <- PSExit;
+            | Result.Error EXIT -> running <- false; state <- PSExit; lastDP <- Some dp;
             | Result.Error e -> running <- false; state <- PSError e; lastDP <- Some dp;
             cyclesDone <- cyclesDone + match ti with | _, Some { Cycles = cyc } -> cyc + 1L | _, None -> 1L
             match ti, stepRes, lastDP with
@@ -648,6 +669,7 @@ let getRunInfoFromImageWithInits breakCond (lim : LoadImage) regsInit flagsInit 
         Coverage = Set []
         TestState = NoTest
         BreakCond = breakCond
+        Breakpoints = Set.empty
     }
 
 
