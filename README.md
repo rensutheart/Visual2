@@ -13,14 +13,26 @@ Go to the [**Releases**](https://github.com/rensutheart/Visual2/releases) page a
 | OS | File | Notes |
 |----|------|-------|
 | Windows | `VisUAL2-SU-win32-x64.zip` | Windows 7+ (64-bit) |
+| macOS | `VisUAL2-SU-macOS-x64.zip` | macOS 10.10+ (Intel & Apple Silicon via Rosetta) |
 | Linux | `VisUAL2-SU-linux-x64.zip` | 64-bit, most distros |
-| macOS | `visual2-su-osx.dmg` | macOS 10.10+ (Intel) |
 
 #### Windows
 
 1. Download `VisUAL2-SU-win32-x64.zip` from [Releases](https://github.com/rensutheart/Visual2/releases)
 2. Extract the zip to any folder
 3. Double-click `VisUAL2-SU.exe`
+
+#### macOS
+
+1. Download `VisUAL2-SU-macOS-x64.zip` from [Releases](https://github.com/rensutheart/Visual2/releases)
+2. Extract:
+   ```bash
+   unzip VisUAL2-SU-macOS-x64.zip
+   cd VisUAL2-SU-darwin-x64
+   open VisUAL2-SU.app
+   ```
+
+> **Note:** macOS may show a security warning for unsigned apps. Go to **System Preferences → Security & Privacy → General** and click **Open Anyway**.
 
 #### Linux
 
@@ -32,17 +44,6 @@ Go to the [**Releases**](https://github.com/rensutheart/Visual2/releases) page a
    chmod +x VisUAL2-SU
    ./VisUAL2-SU
    ```
-
-#### macOS
-
-1. Download `visual2-su-osx.dmg` from [Releases](https://github.com/rensutheart/Visual2/releases) (when available), or the zip
-2. If using the DMG: open it and drag VisUAL2-SU to Applications
-3. If using the zip: extract and run:
-   ```bash
-   open -a VisUAL2-SU.app
-   ```
-
-> **Note:** macOS may show a security warning for unsigned apps. Go to **System Preferences → Security & Privacy → General** and click **Open Anyway**.
 
 ---
 
