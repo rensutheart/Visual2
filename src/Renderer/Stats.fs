@@ -136,15 +136,8 @@ let (|MatchVersion|_|) txt =
        | _, x -> None
 
 
-let remindNewVersion txt =
-    printfn "Remind new version if needed!"
-    txt 
-    |> String.splitRemoveEmptyEntries [|'\n';'\r'|]
-    |> Array.iter (
-        function
-            | MatchVersion _ -> ()
-            | _ -> ()
-    )
+let remindNewVersion _txt =
+    () // version check disabled
 
 let mutable lastRemindTime: System.TimeSpan option = None
 
