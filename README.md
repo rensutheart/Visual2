@@ -274,6 +274,16 @@ This is the **Stellenbosch University (SU) edition** of [VisUAL2](https://github
 
 All changes relative to the original [VisUAL2 v1.06.10](https://github.com/ImperialCollegeLondon/Visual2) from Imperial College London.
 
+### v2.2.2-SU
+
+**DCB improvements**
+- DCB now accepts any number of byte operands (no longer requires a multiple of 4); values are automatically padded with zeros to the next word boundary
+- DCB now supports quoted string literals, e.g. `DCB "Hello",0` — each character is expanded to its byte value
+- Updated hover/tooltip documentation for DCB
+
+**Maintenance**
+- Disabled the "new release of Visual2" version-check popup (referenced unreachable Imperial College intranet)
+
 ### v2.2.1-SU
 
 **UI Polish**
