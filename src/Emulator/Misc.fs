@@ -43,6 +43,31 @@ module Misc
         |> Array.toList
         |> List.map String.trim
 
+    /// Split operands on commas, but respect quoted strings.
+    /// E.g. '"Hello",0x00' -> ['"Hello"'; '0x00']
+    let dcbCommaSplit (x : string) =
+        let rec loop (chars : char list) inQuote acc curr =
+            match chars with
+            | [] -> List.rev ((curr |> List.rev |> System.String.Concat |> String.trim) :: acc)
+            | '"' :: rest ->
+                loop rest (not inQuote) acc ('"' :: curr)
+            | ',' :: rest when not inQuote ->
+                loop rest false ((curr |> List.rev |> System.String.Concat |> String.trim) :: acc) []
+            | c :: rest ->
+                loop rest inQuote acc (c :: curr)
+        loop (Seq.toList x) false [] []
+        |> List.filter (fun s -> s <> "")
+
+    /// Try to parse a DCB operand: if it's a quoted string, expand to byte values;
+    /// otherwise return it as-is for numeric parsing.
+    let expandDcbOperand (s : string) : Result<uint32 list, string> =
+        let trimmed = String.trim s
+        if trimmed.Length >= 2 && trimmed.[0] = '"' && trimmed.[trimmed.Length - 1] = '"' then
+            let inner = trimmed.[1..trimmed.Length - 2]
+            inner |> Seq.toList |> List.map (fun c -> uint32 (int c)) |> Ok
+        else
+            Error trimmed // not a string literal, return as-is for numeric parsing
+
     let mergeResults (lst : Result<'T, 'E> list) =
         let folder (st : Result<'T list, 'E>) (r : Result<'T, 'E>) =
             match st with
@@ -128,14 +153,28 @@ module Misc
         let pa = copyDefault ls instrCond
         match baseOpCode.ToUpper(), opLst with
         | "DCD", RESOLVEALL ops -> makeDataDirective (Some(opNum * 4u)) (makeDataInstr DCD)
-        | "DCB", RESOLVEALL ops ->
-            let paddedLen = if ops.Length % 4 = 0 then ops.Length else ops.Length + (4 - ops.Length % 4)
-            let padding = List.init (paddedLen - ops.Length) (fun _ -> 0u)
-            makeDataDirective (Some (uint32 paddedLen)) (Ok (DCB (ops @ padding)))
-        | "DCB", _ ->
-            let msg = "Invalid operands: '" + ls.Operands + "'. DCB operands contain unresolved symbols"
-            makeInstructionError msg
-            |> makeDataDirective (Some 0u)
+        | "DCB", _ when baseOpCode.ToUpper() = "DCB" ->
+            // DCB supports both numeric values and quoted strings: DCB "Hello",0x0D,0x0A,0
+            let dcbOps = dcbCommaSplit ls.Operands
+            let expandedBytes =
+                dcbOps |> List.map (fun op ->
+                    match expandDcbOperand op with
+                    | Ok bytes -> Ok bytes  // quoted string expanded to bytes
+                    | Error numStr ->       // numeric expression
+                        match parseNumExpr ls numStr with
+                        | Ok v -> Ok [v]
+                        | Error e -> Error e
+                )
+            let allBytes = mergeResults expandedBytes |> Result.map List.concat
+            match allBytes with
+            | Ok bytes ->
+                let paddedLen = if bytes.Length % 4 = 0 then bytes.Length else bytes.Length + (4 - bytes.Length % 4)
+                let padding = List.init (paddedLen - bytes.Length) (fun _ -> 0u)
+                makeDataDirective (Some (uint32 paddedLen)) (Ok (DCB (bytes @ padding)))
+            | Error e ->
+                let msg = "Invalid operands: '" + ls.Operands + "'. DCB operands could not be resolved"
+                makeInstructionError msg
+                |> makeDataDirective (Some 0u)
         | "FILL", RESOLVEALL ops -> makeFILL ops
         | "FILL", _ -> makeDataDirective None <| makeInstructionError ("Invalid operands for FILL: unresolved symbols")
         | "ADR", RegMatch(Ok rn) :: [ PARSE(Ok addr) ] ->

@@ -32,7 +32,7 @@ let opCodeData = [
     "STM","store multiple registers to memory", LDMSTM
     "FILL", "allocate op1 data bytes. Op1 must be divisible by 4. Fill words with 0.", MISC
     "DCD","allocate data words as specified by op1,...opn",MISC
-    "DCB","allocate data bytes as specified by op1,...,opn. Bytes are padded with zeros to a word boundary",MISC
+    "DCB","allocate data bytes or string characters. Supports: DCB 0x48,0x65 or DCB \"Hello\",0. Padded to word boundary",MISC
     "EQU","define label on this line to equal op1. Op1 may contain: labels,numbers, +,-,*,/", EQU
     ]
 
@@ -116,7 +116,8 @@ let makeLDMSTMHover opc func =
 let makeMISCHover opc func = 
     let initLine =
         match opc with
-        | "DCD" | "DCB" | "dcd" | "dcb" -> "op1, ..., opn; "
+        | "DCD" | "dcd" -> "op1, ..., opn; "
+        | "DCB" | "dcb" -> "op1, ..., opn or \"string\"; "
         | "FILL" | "fill" -> "op1 ; "
         | _ -> failwithf "%s is not a MISC opcode" opc        
     sprintf """
@@ -125,6 +126,8 @@ let makeMISCHover opc func =
 **DCD op1, ..., opn**
 
 **DCB op1, ..., opn**
+
+**DCB "Hello",0**
 
 **FILL N**
 """  opc initLine func 
