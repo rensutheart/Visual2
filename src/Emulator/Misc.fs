@@ -128,9 +128,12 @@ module Misc
         let pa = copyDefault ls instrCond
         match baseOpCode.ToUpper(), opLst with
         | "DCD", RESOLVEALL ops -> makeDataDirective (Some(opNum * 4u)) (makeDataInstr DCD)
-        | "DCB", RESOLVEALL ops when ops.Length % 4 = 0 -> makeDataDirective (Some opNum) (makeDataInstr DCB)
+        | "DCB", RESOLVEALL ops ->
+            let paddedLen = if ops.Length % 4 = 0 then ops.Length else ops.Length + (4 - ops.Length % 4)
+            let padding = List.init (paddedLen - ops.Length) (fun _ -> 0u)
+            makeDataDirective (Some (uint32 paddedLen)) (Ok (DCB (ops @ padding)))
         | "DCB", _ ->
-            let msg = "Invalid operands: '" + ls.Operands + "'. DCB must have a number of parameters divisible by 4"
+            let msg = "Invalid operands: '" + ls.Operands + "'. DCB operands contain unresolved symbols"
             makeInstructionError msg
             |> makeDataDirective (Some 0u)
         | "FILL", RESOLVEALL ops -> makeFILL ops

@@ -404,7 +404,7 @@ These are assembler directives — they do not generate executable code but affe
 | Directive | Syntax | Description |
 |-----------|--------|-------------|
 | `DCD` | `label DCD expr1, expr2, ...` | Define 32-bit word constants. Allocates 4 bytes per value. |
-| `DCB` | `label DCB byte1, byte2, ...` | Define byte constants. Total byte count must be divisible by 4. |
+| `DCB` | `label DCB byte1, byte2, ...` | Define byte constants. Padded with zeros to a word (4-byte) boundary. |
 | `FILL` | `label FILL nBytes [, value]` | Fill memory with `value` (default 0). `nBytes` must be divisible by 4. |
 | `EQU` | `label EQU expression` | Define a named constant (no memory allocated). |
 

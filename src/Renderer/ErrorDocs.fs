@@ -32,7 +32,7 @@ let opCodeData = [
     "STM","store multiple registers to memory", LDMSTM
     "FILL", "allocate op1 data bytes. Op1 must be divisible by 4. Fill words with 0.", MISC
     "DCD","allocate data words as specified by op1,...opn",MISC
-    "DCB","allocate data bytes as specified by op1,...,opn. The number of operand must be divisible by 4",MISC
+    "DCB","allocate data bytes as specified by op1,...,opn. Bytes are padded with zeros to a word boundary",MISC
     "EQU","define label on this line to equal op1. Op1 may contain: labels,numbers, +,-,*,/", EQU
     ]
 
