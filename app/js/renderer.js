@@ -24726,6 +24726,12 @@ function setRepresentation(rep) {
     btnNew.classList.add("btn-rep-enabled");
     Object(__WEBPACK_IMPORTED_MODULE_0__Users_rensu_Dropbox_Lecturing_CS214_2026_ARM_Visual2_repo_src_Renderer_Refs_fs__["w" /* currentRep */])(rep);
     calcDashboardWidth();
+    // Use smaller font for binary representation so all 32 bits fit
+    if (rep.tag === 1) { // Bin
+        Object(__WEBPACK_IMPORTED_MODULE_0__Users_rensu_Dropbox_Lecturing_CS214_2026_ARM_Visual2_repo_src_Renderer_Refs_fs__["_27" /* setCustomCSS */])("--register-font-size", "13px");
+    } else {
+        Object(__WEBPACK_IMPORTED_MODULE_0__Users_rensu_Dropbox_Lecturing_CS214_2026_ARM_Visual2_repo_src_Renderer_Refs_fs__["_27" /* setCustomCSS */])("--register-font-size", "13pt");
+    }
     Object(__WEBPACK_IMPORTED_MODULE_0__Users_rensu_Dropbox_Lecturing_CS214_2026_ARM_Visual2_repo_src_Renderer_Refs_fs__["_51" /* updateRegisters */])();
 }
 function toggleReverseView() {

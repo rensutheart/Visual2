@@ -52,6 +52,10 @@ let setRepresentation rep =
     // keep constants defining GUI sizes in CSS
     currentRep <- rep
     calcDashboardWidth()
+    // Use smaller font for binary representation so all 32 bits fit
+    match rep with
+    | Bin -> setCustomCSS "--register-font-size" "13px"
+    | _ -> setCustomCSS "--register-font-size" "13pt"
     updateRegisters()
 
 /// Toggle memory direction
