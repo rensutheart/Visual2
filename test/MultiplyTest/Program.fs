@@ -853,6 +853,293 @@ let main _ =
         assertFlagEq ri "N" (fun f -> f.N) false "N flag clear"
     printfn ""
 
+    // =========================================================================
+    // UDIV Tests
+    // =========================================================================
+
+    // --- Test 51: UDIV basic ---
+    printfn "Test 51: UDIV basic 20 / 4 = 5"
+    let lines51 = [
+        "        MOV R0, #20"
+        "        MOV R1, #4"
+        "        UDIV R2, R0, R1"
+        "        END"
+    ]
+    match runProgram lines51 100L with
+    | None -> fail "Test 51" "Program failed to run"
+    | Some ri ->
+        assertRegEq ri R2 5u "UDIV 20/4=5"
+    printfn ""
+
+    // --- Test 52: UDIV truncates (integer division) ---
+    printfn "Test 52: UDIV truncation 7 / 2 = 3"
+    let lines52 = [
+        "        MOV R0, #7"
+        "        MOV R1, #2"
+        "        UDIV R2, R0, R1"
+        "        END"
+    ]
+    match runProgram lines52 100L with
+    | None -> fail "Test 52" "Program failed to run"
+    | Some ri ->
+        assertRegEq ri R2 3u "UDIV 7/2=3 (truncated)"
+    printfn ""
+
+    // --- Test 53: UDIV by 1 ---
+    printfn "Test 53: UDIV by 1 (identity)"
+    let lines53 = [
+        "        MOV R0, #42"
+        "        MOV R1, #1"
+        "        UDIV R2, R0, R1"
+        "        END"
+    ]
+    match runProgram lines53 100L with
+    | None -> fail "Test 53" "Program failed to run"
+    | Some ri ->
+        assertRegEq ri R2 42u "UDIV 42/1=42"
+    printfn ""
+
+    // --- Test 54: UDIV by zero returns 0 ---
+    printfn "Test 54: UDIV by zero returns 0"
+    let lines54 = [
+        "        MOV R0, #100"
+        "        MOV R1, #0"
+        "        UDIV R2, R0, R1"
+        "        END"
+    ]
+    match runProgram lines54 100L with
+    | None -> fail "Test 54" "Program failed to run"
+    | Some ri ->
+        assertRegEq ri R2 0u "UDIV 100/0=0"
+    printfn ""
+
+    // --- Test 55: UDIV large unsigned values ---
+    printfn "Test 55: UDIV 0xFFFFFFFF / 2"
+    let lines55 = [
+        "        LDR R0, =0xFFFFFFFF"
+        "        MOV R1, #2"
+        "        UDIV R2, R0, R1"
+        "        END"
+    ]
+    match runProgram lines55 100L with
+    | None -> fail "Test 55" "Program failed to run"
+    | Some ri ->
+        // 0xFFFFFFFF = 4294967295 / 2 = 2147483647 = 0x7FFFFFFF
+        assertRegEq ri R2 0x7FFFFFFFu "UDIV 0xFFFFFFFF/2=0x7FFFFFFF"
+    printfn ""
+
+    // --- Test 56: UDIV 0 / N = 0 ---
+    printfn "Test 56: UDIV 0 / N = 0"
+    let lines56 = [
+        "        MOV R0, #0"
+        "        MOV R1, #5"
+        "        UDIV R2, R0, R1"
+        "        END"
+    ]
+    match runProgram lines56 100L with
+    | None -> fail "Test 56" "Program failed to run"
+    | Some ri ->
+        assertRegEq ri R2 0u "UDIV 0/5=0"
+    printfn ""
+
+    // --- Test 57: UDIV does not change flags ---
+    printfn "Test 57: UDIV does not change flags"
+    let lines57 = [
+        "        MOV R0, #0"
+        "        CMP R0, #1"
+        "        MOV R1, #10"
+        "        MOV R2, #3"
+        "        UDIV R3, R1, R2"
+        "        END"
+    ]
+    match runProgram lines57 100L with
+    | None -> fail "Test 57" "Program failed to run"
+    | Some ri ->
+        assertRegEq ri R3 3u "UDIV 10/3=3"
+        // CMP R0, #1 where R0=0: N=1, Z=0
+        assertFlagEq ri "N" (fun f -> f.N) true "N flag preserved"
+        assertFlagEq ri "Z" (fun f -> f.Z) false "Z flag preserved"
+    printfn ""
+
+    // =========================================================================
+    // SDIV Tests
+    // =========================================================================
+
+    // --- Test 58: SDIV basic positive ---
+    printfn "Test 58: SDIV basic 20 / 4 = 5"
+    let lines58 = [
+        "        MOV R0, #20"
+        "        MOV R1, #4"
+        "        SDIV R2, R0, R1"
+        "        END"
+    ]
+    match runProgram lines58 100L with
+    | None -> fail "Test 58" "Program failed to run"
+    | Some ri ->
+        assertRegEq ri R2 5u "SDIV 20/4=5"
+    printfn ""
+
+    // --- Test 59: SDIV negative dividend ---
+    printfn "Test 59: SDIV -20 / 4 = -5"
+    let lines59 = [
+        "        LDR R0, =0xFFFFFFEC"
+        "        MOV R1, #4"
+        "        SDIV R2, R0, R1"
+        "        END"
+    ]
+    match runProgram lines59 100L with
+    | None -> fail "Test 59" "Program failed to run"
+    | Some ri ->
+        // -20 / 4 = -5 = 0xFFFFFFFB
+        assertRegEq ri R2 0xFFFFFFFBu "SDIV -20/4=-5"
+    printfn ""
+
+    // --- Test 60: SDIV negative divisor ---
+    printfn "Test 60: SDIV 20 / -4 = -5"
+    let lines60 = [
+        "        MOV R0, #20"
+        "        LDR R1, =0xFFFFFFFC"
+        "        SDIV R2, R0, R1"
+        "        END"
+    ]
+    match runProgram lines60 100L with
+    | None -> fail "Test 60" "Program failed to run"
+    | Some ri ->
+        // 20 / -4 = -5 = 0xFFFFFFFB
+        assertRegEq ri R2 0xFFFFFFFBu "SDIV 20/(-4)=-5"
+    printfn ""
+
+    // --- Test 61: SDIV negative / negative ---
+    printfn "Test 61: SDIV -20 / -4 = 5"
+    let lines61 = [
+        "        LDR R0, =0xFFFFFFEC"
+        "        LDR R1, =0xFFFFFFFC"
+        "        SDIV R2, R0, R1"
+        "        END"
+    ]
+    match runProgram lines61 100L with
+    | None -> fail "Test 61" "Program failed to run"
+    | Some ri ->
+        assertRegEq ri R2 5u "SDIV -20/(-4)=5"
+    printfn ""
+
+    // --- Test 62: SDIV by zero returns 0 ---
+    printfn "Test 62: SDIV by zero returns 0"
+    let lines62 = [
+        "        MOV R0, #100"
+        "        MOV R1, #0"
+        "        SDIV R2, R0, R1"
+        "        END"
+    ]
+    match runProgram lines62 100L with
+    | None -> fail "Test 62" "Program failed to run"
+    | Some ri ->
+        assertRegEq ri R2 0u "SDIV 100/0=0"
+    printfn ""
+
+    // --- Test 63: SDIV truncation towards zero ---
+    printfn "Test 63: SDIV -7 / 2 = -3 (truncation towards zero)"
+    let lines63 = [
+        "        LDR R0, =0xFFFFFFF9"
+        "        MOV R1, #2"
+        "        SDIV R2, R0, R1"
+        "        END"
+    ]
+    match runProgram lines63 100L with
+    | None -> fail "Test 63" "Program failed to run"
+    | Some ri ->
+        // -7 / 2 = -3 (truncation towards zero) = 0xFFFFFFFD
+        assertRegEq ri R2 0xFFFFFFFDu "SDIV -7/2=-3"
+    printfn ""
+
+    // --- Test 64: SDIV vs UDIV difference ---
+    printfn "Test 64: SDIV vs UDIV difference for 0xFFFFFFFF / 2"
+    let lines64 = [
+        "        LDR R0, =0xFFFFFFFF"
+        "        MOV R1, #2"
+        "        SDIV R2, R0, R1"
+        "        UDIV R3, R0, R1"
+        "        END"
+    ]
+    match runProgram lines64 100L with
+    | None -> fail "Test 64" "Program failed to run"
+    | Some ri ->
+        // SDIV: 0xFFFFFFFF = -1, -1/2 = 0 (truncation towards zero)
+        assertRegEq ri R2 0u "SDIV -1/2=0"
+        // UDIV: 0xFFFFFFFF = 4294967295, /2 = 2147483647 = 0x7FFFFFFF
+        assertRegEq ri R3 0x7FFFFFFFu "UDIV 0xFFFFFFFF/2=0x7FFFFFFF"
+    printfn ""
+
+    // --- Test 65: SDIV does not change flags ---
+    printfn "Test 65: SDIV does not change flags"
+    let lines65 = [
+        "        MOV R0, #0"
+        "        CMP R0, #1"
+        "        LDR R1, =0xFFFFFFEC"
+        "        MOV R2, #4"
+        "        SDIV R3, R1, R2"
+        "        END"
+    ]
+    match runProgram lines65 100L with
+    | None -> fail "Test 65" "Program failed to run"
+    | Some ri ->
+        assertRegEq ri R3 0xFFFFFFFBu "SDIV -20/4=-5"
+        assertFlagEq ri "N" (fun f -> f.N) true "N flag preserved"
+        assertFlagEq ri "Z" (fun f -> f.Z) false "Z flag preserved"
+    printfn ""
+
+    // --- Test 66: Conditional SDIVEQ (true) ---
+    printfn "Test 66: Conditional SDIVEQ (condition true)"
+    let lines66 = [
+        "        MOV R0, #0"
+        "        CMP R0, #0"
+        "        MOV R1, #20"
+        "        MOV R2, #4"
+        "        MOV R3, #99"
+        "        SDIVEQ R3, R1, R2"
+        "        END"
+    ]
+    match runProgram lines66 100L with
+    | None -> fail "Test 66" "Program failed to run"
+    | Some ri ->
+        assertRegEq ri R3 5u "SDIVEQ executes (20/4=5)"
+    printfn ""
+
+    // --- Test 67: Conditional SDIVNE (false) ---
+    printfn "Test 67: Conditional SDIVNE (condition false)"
+    let lines67 = [
+        "        MOV R0, #0"
+        "        CMP R0, #0"
+        "        MOV R1, #20"
+        "        MOV R2, #4"
+        "        MOV R3, #99"
+        "        SDIVNE R3, R1, R2"
+        "        END"
+    ]
+    match runProgram lines67 100L with
+    | None -> fail "Test 67" "Program failed to run"
+    | Some ri ->
+        assertRegEq ri R3 99u "SDIVNE skipped, R3 unchanged"
+    printfn ""
+
+    // --- Test 68: UDIV/SDIV with PC rejected ---
+    printfn "Test 68: SDIV with PC rejected"
+    let lines68 = [
+        "        SDIV R15, R1, R2"
+        "        END"
+    ]
+    assertParseError lines68 "SDIV with R15/PC rejected"
+    printfn ""
+
+    // --- Test 69: SDIV wrong operand count ---
+    printfn "Test 69: SDIV wrong operand count rejected"
+    let lines69 = [
+        "        SDIV R0, R1"
+        "        END"
+    ]
+    assertParseError lines69 "SDIV with 2 operands rejected"
+    printfn ""
+
     // --- Summary ---
     printfn "=== SUMMARY ==="
     printfn "Assertions: %d" assertions

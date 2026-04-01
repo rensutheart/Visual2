@@ -650,9 +650,8 @@ module Memory
             |> fun (st, chg) ->
                 makeOffsetList rl [] chg (start + st)
                 |> if chg < 0 then id else List.rev
-                |> (fun lst -> lst, ( if wb then chg * lst.Length else 0)
-
-        ) List.map (fun el -> el |> uint32) lst, rDiff
+                |> (fun lst -> lst, (if wb then chg * lst.Length else 0))
+        List.map (fun el -> el |> uint32) lst, rDiff
 
     let executeLDRDSTRD (ins : InstrMemDouble) (dp : DataPath) =
         let addr = ins.MAddr dp (int32 dp.Regs.[ins.Rb]) |> uint32

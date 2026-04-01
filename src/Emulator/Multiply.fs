@@ -19,6 +19,9 @@ module Multiply
     /// 64-bit (long) multiply operations
     type LongMulOp = | UMULL | UMLAL | SMULL | SMLAL
 
+    /// Division operations
+    type DivOp = | SDIV | UDIV
+
     /// Multiply instruction type
     type Instr =
         /// MUL Rd, Rm, Rs (setFlags)
@@ -27,6 +30,8 @@ module Multiply
         | Mla of Rd : RName * Rm : RName * Rs : RName * Rn : RName * SetFlags : bool
         /// UMULL/UMLAL/SMULL/SMLAL RdLo, RdHi, Rm, Rs (setFlags)
         | LongMul of Op : LongMulOp * RdLo : RName * RdHi : RName * Rm : RName * Rs : RName * SetFlags : bool
+        /// SDIV/UDIV Rd, Rn, Rm
+        | Div of Op : DivOp * Rd : RName * Rn : RName * Rm : RName
 
     let mulSpec = {
         InstrC = DP
@@ -34,8 +39,14 @@ module Multiply
         Suffixes = [ ""; "S" ]
     }
 
+    let divSpec = {
+        InstrC = DP
+        Roots = [ "SDIV"; "UDIV" ]
+        Suffixes = [ "" ]
+    }
+
     /// map of all possible opcodes recognised
-    let opCodes = opCodeExpand mulSpec
+    let opCodes = opCodeExpand mulSpec |> Map.fold (fun acc k v -> Map.add k v acc) (opCodeExpand divSpec)
 
     /// Parse a multiply instruction
     let parse (ls : LineData) : Parse<Instr> option =
@@ -100,11 +111,19 @@ module Multiply
                                 | "SMLAL" -> SMLAL
                                 | _ -> failwithf "What? Unexpected root %s" root
                             Ok (LongMul(op, rdLoR, rdHiR, rmR, rsR, setFlags)))
+                | ("SDIV" | "UDIV"), [ rd; rn; rm ] ->
+                    parseRegs [ rd; rn; rm ]
+                    |> Result.bind validateNoPC
+                    |> Result.bind (fun regs ->
+                        let rdR, rnR, rmR = regs.[0], regs.[1], regs.[2]
+                        let op = match root with | "SDIV" -> SDIV | _ -> UDIV
+                        Ok (Div(op, rdR, rnR, rmR)))
                 | _, _ ->
                     let expected =
                         match root with
                         | "MUL" -> "MUL Rd, Rm, Rs"
                         | "MLA" -> "MLA Rd, Rm, Rs, Rn"
+                        | "SDIV" | "UDIV" -> sprintf "%s Rd, Rn, Rm" root
                         | _ -> sprintf "%s RdLo, RdHi, Rm, Rs" root
                     makeParseError expected (String.concat "," operands) ""
 
@@ -152,3 +171,15 @@ module Multiply
             let ufl = { toUFlags dp.Fl with F = newFl; NZU = sf }
             let dp' = dp |> setReg rdLo lo |> setReg rdHi hi
             Ok ({ dp' with Fl = if sf then newFl else dp.Fl }, ufl)
+
+        | Div(op, rd, rn, rm) ->
+            let divisor = getReg rm
+            let result =
+                if divisor = 0u then
+                    0u // ARM division by zero returns 0
+                else
+                    match op with
+                    | SDIV -> uint32 (int32 (getReg rn) / int32 divisor)
+                    | UDIV -> (getReg rn) / divisor
+            let ufl = toUFlags dp.Fl // no flag changes
+            Ok (setReg rd result dp, ufl)

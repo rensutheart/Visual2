@@ -49,7 +49,7 @@ module Helpers
     /// makes a reg
     let makeReg r = regNames.[r]
     /// Takes a number and converts it into a reg string
-    let makeRegFn = (string >> (+) "R") // needed elsewhere
+    let makeRegFn : int -> string = (string >> (+) "R") // needed elsewhere
 
     /// makes a RName from a number
     let makeRegFromNum r =

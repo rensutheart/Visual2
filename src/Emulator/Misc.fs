@@ -50,11 +50,11 @@ module Misc
             match chars with
             | [] -> List.rev ((curr |> List.rev |> System.String.Concat |> String.trim) :: acc)
             | '"' :: rest ->
-                loop rest (not inQuote) acc ('"' :: curr)
+                loop rest (not inQuote) acc (string '"' :: curr)
             | ',' :: rest when not inQuote ->
                 loop rest false ((curr |> List.rev |> System.String.Concat |> String.trim) :: acc) []
             | c :: rest ->
-                loop rest inQuote acc (c :: curr)
+                loop rest inQuote acc (string c :: curr)
         loop (Seq.toList x) false [] []
         |> List.filter (fun s -> s <> "")
 
