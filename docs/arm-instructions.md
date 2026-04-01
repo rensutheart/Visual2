@@ -493,7 +493,6 @@ VisUAL2 targets the **32-bit ARMv4 instruction set**. The following ARM features
 | Privileged mode | `MSR`, `MRS`, mode switching |
 | CPSR/SPSR access | No direct flag register read/write |
 | Q (saturation) flag | `QADD`/`QSUB` saturate correctly but the Q sticky flag is not tracked |
-| Division | `SDIV`, `UDIV` (ARMv7-R/ARMv7-M only) |
 
 ---
 
