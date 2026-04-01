@@ -8,4 +8,4 @@ dotnet nuget locals all --clear
 dotnet restore src\Main\Main.fsproj
 dotnet restore src\Renderer\Renderer.fsproj
 dotnet restore src\Emulator\Emulator.fsproj
-yarn install
+node scripts\platform-install.js
