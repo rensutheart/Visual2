@@ -15,12 +15,14 @@ VisUAL2-SU emulates **32-bit ARM (ARMv4)** — all registers are 32 bits wide, m
 3. [Data Processing Instructions](#data-processing-instructions)
 4. [Flexible Operand 2](#flexible-operand-2)
 5. [Multiply Instructions](#multiply-instructions)
-6. [Memory Instructions — Single Register](#memory-instructions--single-register)
-7. [Memory Instructions — Multiple Registers](#memory-instructions--multiple-registers)
-8. [Branch Instructions](#branch-instructions)
-9. [Pseudo-Instructions & Directives](#pseudo-instructions--directives)
-10. [Expressions](#expressions)
-11. [Notable Limitations](#notable-limitations)
+6. [Division Instructions](#division-instructions)
+7. [Saturating Arithmetic Instructions](#saturating-arithmetic-instructions)
+8. [Memory Instructions — Single Register](#memory-instructions--single-register)
+9. [Memory Instructions — Multiple Registers](#memory-instructions--multiple-registers)
+10. [Branch Instructions](#branch-instructions)
+11. [Pseudo-Instructions & Directives](#pseudo-instructions--directives)
+12. [Expressions](#expressions)
+13. [Notable Limitations](#notable-limitations)
 
 ---
 
@@ -194,6 +196,31 @@ Without the `S` suffix, flags are not modified.
 - `PC` (`R15`) must not be used as any operand
 - **MUL/MLA:** `Rd` must differ from `Rm`
 - **Long multiplies:** `RdLo` must differ from `RdHi` and from `Rm`; `RdHi` must differ from `Rm`
+
+---
+
+## Division Instructions
+
+> **Source file:** `src/Emulator/Multiply.fs`
+
+### Signed and Unsigned Division (`OP{cond} Rd, Rn, Rm`)
+
+| Mnemonic | Operation | Notes |
+|----------|-----------|-------|
+| `SDIV` | Rd = Rn ÷ Rm (signed) | Truncates towards zero |
+| `UDIV` | Rd = Rn ÷ Rm (unsigned) | Truncates towards zero |
+
+### Flags
+
+Division instructions **do not** support the `S` suffix and **never** modify flags.
+
+### Division by Zero
+
+Division by zero returns `0` (per ARM architecture specification).
+
+### Register Constraints
+
+- `PC` (`R15`) must not be used as any operand
 
 ---
 
@@ -480,6 +507,8 @@ Data Processing:   MOV  MVN  ADD  SUB  ADC  SBC  RSB  RSC
 
 Multiply:          MUL  MLA  UMULL  UMLAL  SMULL  SMLAL
 
+Divide:            SDIV  UDIV
+
 Saturating:        QADD  QSUB
 
 Memory (single):   LDR  LDRB  STR  STRB  LDR Rd,=val
@@ -495,4 +524,4 @@ Branches:          B    BL   BX   BLX  END
 Directives:        DCD  DCB  FILL  EQU  ADR
 ```
 
-**Total:** 21 data processing + 6 multiply + 2 saturating + 11 memory (single) + 16 memory (multiple modes) + 2 stack (PUSH/POP) + 5 branch + 5 directives = **68 base mnemonics**, expanding to hundreds of valid opcode strings with condition codes and suffixes.
+**Total:** 21 data processing + 6 multiply + 2 divide + 2 saturating + 11 memory (single) + 16 memory (multiple modes) + 2 stack (PUSH/POP) + 5 branch + 5 directives = **70 base mnemonics**, expanding to hundreds of valid opcode strings with condition codes and suffixes.

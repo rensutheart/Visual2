@@ -75,6 +75,8 @@ Data Processing:   MOV  MVN  ADD  SUB  ADC  SBC  RSB  RSC
 
 Multiply:          MUL  MLA  UMULL  UMLAL  SMULL  SMLAL
 
+Divide:            SDIV  UDIV
+
 Saturating:        QADD  QSUB
 
 Memory (single):   LDR  LDRB  STR  STRB  LDR Rd,=val
@@ -90,7 +92,7 @@ Branches:          B    BL   BX   BLX  END
 Directives:        DCD  DCB  FILL  EQU  ADR
 ```
 
-**68 base mnemonics**, expanding to hundreds of valid opcodes with condition codes (EQ, NE, CS, CC, MI, PL, VS, VC, HI, LS, GE, LT, GT, LE, AL) and the S suffix.
+**70 base mnemonics**, expanding to hundreds of valid opcodes with condition codes (EQ, NE, CS, CC, MI, PL, VS, VC, HI, LS, GE, LT, GT, LE, AL) and the S suffix.
 
 ### Key Features
 
