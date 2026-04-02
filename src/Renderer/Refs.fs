@@ -22,7 +22,7 @@ open EEExtensions
 //                                  App Version
 // **********************************************************************************
 
-let appVersion = "2.2.2-SU"
+let appVersion = "2.2.3-SU"
 let baseVersion = "1.06.10"  // Original VisUAL2 version this fork is based on
 
 // **********************************************************************************

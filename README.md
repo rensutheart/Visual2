@@ -268,13 +268,30 @@ yarn pack-osx       # macOS binary → dist/ (macOS host only for DMG)
 
 This is the **Stellenbosch University (SU) edition** of [VisUAL2](https://github.com/ImperialCollegeLondon/Visual2), originally developed at Imperial College London. Based on VisUAL2 v1.06.10.
 
-**SU edition by:** Rensu Theart, Stellenbosch University — expanded instruction set (PUSH/POP, BX/BLX, half-word, multiply, saturating arithmetic, LDRD/STRD), ARM spec compliance fixes, memory-mapped pixel display, and documentation.
+**SU edition by:** Rensu Theart, Stellenbosch University — expanded instruction set (PUSH/POP, BX/BLX, half-word, multiply, saturating arithmetic, division, LDRD/STRD), ARM spec compliance fixes, memory-mapped pixel display, and documentation.
 
 ---
 
 ## Changelog (SU Edition)
 
 All changes relative to the original [VisUAL2 v1.06.10](https://github.com/ImperialCollegeLondon/Visual2) from Imperial College London.
+
+### v2.2.3-SU
+
+**New instructions**
+- Added `SDIV` and `UDIV` (signed/unsigned integer division) instructions
+- Removed outdated note about division being ARMv7-R/M only
+
+**Display samples**
+- Added 5 display demo programs: Colour Palette, Diagonal Rainbow, Moving Square, Checkerboard, and Spiral
+- Display demos accessible from File → Samples menu
+
+**UI improvements**
+- Adjusted dashboard width for binary representation display
+- Updated font sizing for better fit
+
+**Build & maintenance**
+- Added cross-platform build support (macOS, Windows, Linux from single machine)
 
 ### v2.2.2-SU
 

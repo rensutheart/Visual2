@@ -10072,7 +10072,7 @@ function parse(s, radix) {
 
 
 
-var appVersion = "2.2.2-SU";
+var appVersion = "2.2.3-SU";
 var baseVersion = "1.06.10";
 var Representations = Object(__WEBPACK_IMPORTED_MODULE_3__fable_fable_core_2_0_11_Types__["f" /* declare */])(function Representations(tag, name) {
     for (var _len = arguments.length, fields = Array(_len > 2 ? _len - 2 : 0), _key = 2; _key < _len; _key++) {
