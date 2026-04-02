@@ -25,14 +25,20 @@ Go to the [**Releases**](https://github.com/rensutheart/Visual2/releases) page a
 #### macOS
 
 1. Download `VisUAL2-SU-macOS-x64.zip` from [Releases](https://github.com/rensutheart/Visual2/releases)
-2. Extract:
+2. Extract and remove the macOS quarantine flag (this prevents the "VisUAL2-SU Not Opened" Gatekeeper warning):
    ```bash
    unzip VisUAL2-SU-macOS-x64.zip
+   xattr -rd com.apple.quarantine VisUAL2-SU-darwin-x64
+   ```
+3. Launch:
+   ```bash
    cd VisUAL2-SU-darwin-x64
    open VisUAL2-SU.app
    ```
 
-> **Note:** macOS may show a security warning for unsigned apps. Go to **System Preferences → Security & Privacy → General** and click **Open Anyway**.
+> **Gatekeeper note:** Because the app is not signed with an Apple Developer certificate, macOS will block it by default. The `xattr` command above is the simplest fix. If you already tried to open it without running `xattr` first, you can either:
+> - Run the `xattr` command above and try again, or
+> - Go to **System Settings → Privacy & Security**, scroll down to the Security section, and click **Open Anyway** next to the "VisUAL2-SU was blocked" message.
 
 #### Linux
 
@@ -283,8 +289,8 @@ All changes relative to the original [VisUAL2 v1.06.10](https://github.com/Imper
 - Removed outdated note about division being ARMv7-R/M only
 
 **Display samples**
-- Added 5 display demo programs: Colour Palette, Diagonal Rainbow, Moving Square, Checkerboard, and Spiral
-- Display demos accessible from File → Samples menu
+- Added 5 display demo programs: Radar Sweep, Game of Life, Mandelbrot Set, Spirograph Curves, and Bouncing Ball
+- Display demos accessible from the Help menu
 
 **UI improvements**
 - Adjusted dashboard width for binary representation display
