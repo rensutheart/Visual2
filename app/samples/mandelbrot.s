@@ -90,17 +90,17 @@ iter_loop
         MOV  R1, R1, ASR #8     ; R1 = z_i²  in Q8.8
 
         ; Escape test: z_r² + z_i² > 4.0 (1024 in Q8.8)?
-        ADD  R10, R0, R1        ; R10 = z_r² + z_i²
+        ADD  R2, R0, R1         ; R2 = z_r² + z_i²
         MOV  R3, #0x400         ; 1024 = 4.0 in Q8.8
-        CMP  R10, R3
+        CMP  R2, R3
         BGT  escaped
 
         ; z_i_new = 2 * z_r * z_i + ci
         ; Trick: shift the product right by 7 instead of 8 to double it
-        MUL  R10, R6, R7        ; z_r * z_i  (Rd=R10 ≠ Rm=R6 ✓)
-        MOV  R10, R10, ASR #7   ; 2 * z_r * z_i in Q8.8
+        MUL  R2, R6, R7         ; z_r * z_i  (Rd=R2 ≠ Rm=R6 ✓)
+        MOV  R2, R2, ASR #7     ; 2 * z_r * z_i in Q8.8
         LDR  R3, [SP, #4]       ; ci  (saved on stack)
-        ADD  R7, R10, R3        ; z_i_new = 2*zr*zi + ci
+        ADD  R7, R2, R3         ; z_i_new = 2*zr*zi + ci
 
         ; z_r_new = z_r² - z_i² + cr
         SUB  R0, R0, R1         ; z_r² - z_i²
@@ -133,6 +133,9 @@ iter_done
 
 px_done
         ADD  R4, R4, #1         ; next py
+        ; Refresh the display every 4 rows for visual progress
+        TST  R4, #0x3           ; is py a multiple of 4?
+        MOVEQ R10, #1           ; trigger display refresh
         B    py_loop
 
 done

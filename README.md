@@ -245,6 +245,22 @@ This compiles all F# source to JavaScript via Fable and bundles with webpack. Ou
 npx electron . -w
 ```
 
+#### 8. Package for distribution
+
+```bash
+# From the project root:
+node scripts/package.js darwin
+```
+
+This runs `electron-packager` to create `dist-darwin/VisUAL2-SU-darwin-x64/`.
+
+> **DMG creation will fail** on Apple Silicon because the `macos-alias` native module in `node_modules-darwin` is compiled for x86_64 but Node 16 runs natively as ARM64. The `.app` bundle is still created successfully — the error only affects the optional DMG step. Create a zip instead:
+>
+> ```bash
+> cd dist-darwin
+> zip -r VisUAL2-SU-v$(node -p "require('../package.json').version")-macOS-x64.zip VisUAL2-SU-darwin-x64/
+> ```
+
 ### macOS (Intel), Windows, Linux
 
 These platforms can use .NET Core 2.1 SDK natively.

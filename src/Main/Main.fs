@@ -177,7 +177,11 @@ let createMainWindow () =
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
-electron.app.on("ready", unbox createMainWindow) |> ignore
+let mutable appIsReady = false
+electron.app.on("ready", unbox(fun () ->
+    appIsReady <- true
+    createMainWindow()
+)) |> ignore
 
 // Quit when all windows are closed.
 electron.app.on("window-all-closed", unbox(fun () ->
@@ -190,7 +194,7 @@ electron.app.on("window-all-closed", unbox(fun () ->
 electron.app.on("activate", unbox(fun () ->
     // On OS X it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
-    if mainWindow.IsNone  then
+    if mainWindow.IsNone && appIsReady then
         createMainWindow()
 )) |> ignore
 
