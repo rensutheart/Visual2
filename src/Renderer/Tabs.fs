@@ -66,11 +66,46 @@ let setNoStatus() =
     Refs.statusBar.innerHTML <- "-"
 
 let setRunButton (mode : ExecutionTop.RunMode) =
-    match mode with
-    | ExecutionTop.ActiveMode(ExecutionTop.Running, _) ->
-        Refs.runSimulationBtn.innerText <- "Pause";
-    | _ ->
-        Refs.runSimulationBtn.innerText <- "Run"
+    let runIcon = Browser.document.getElementById "run-icon"
+    let runLabel = Browser.document.getElementById "run-label"
+    let setDisabled (btn : HTMLButtonElement) (v : bool) = btn.disabled <- v
+    let isRunning =
+        match mode with
+        | ExecutionTop.ActiveMode(ExecutionTop.Running, _) -> true
+        | _ -> false
+    let isPaused =
+        match mode with
+        | ExecutionTop.ActiveMode(ExecutionTop.Paused, _) -> true
+        | _ -> false
+    let isFinished =
+        match mode with
+        | ExecutionTop.FinishedMode _ -> true
+        | _ -> false
+    let isError =
+        match mode with
+        | ExecutionTop.RunErrorMode _ -> true
+        | _ -> false
+    let isReset =
+        match mode with
+        | ExecutionTop.ResetMode -> true
+        | _ -> false
+    // Run/Pause button: icon + label + highlight
+    if isRunning then
+        runIcon.className <- "icon icon-pause"
+        runLabel.innerText <- "Pause"
+        Refs.runSimulationBtn.classList.add "btn-running"
+    else
+        runIcon.className <- "icon icon-play"
+        runLabel.innerText <- "Run"
+        Refs.runSimulationBtn.classList.remove "btn-running"
+    // Step Back: enabled when paused, finished, or error
+    setDisabled Refs.stepBackBtn (not (isPaused || isFinished || isError))
+    // Step Forward: enabled when reset or paused
+    setDisabled Refs.stepForwardBtn (not (isReset || isPaused))
+    // Stop: enabled only when running
+    setDisabled Refs.stopSimulationBtn (not isRunning)
+    // Reset: enabled when paused, finished, or error
+    setDisabled Refs.resetSimulationBtn (not (isPaused || isFinished || isError))
 
 let setMode (rm : ExecutionTop.RunMode) =
     match rm with

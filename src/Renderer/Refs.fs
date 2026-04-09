@@ -22,7 +22,7 @@ open EEExtensions
 //                                  App Version
 // **********************************************************************************
 
-let appVersion = "2.2.3-SU"
+let appVersion = "2.2.4-SU"
 let baseVersion = "1.06.10"  // Original VisUAL2 version this fork is based on
 
 // **********************************************************************************
@@ -185,9 +185,11 @@ let getHtml = Browser.document.getElementById
 let openFileBtn = getHtml "explore" :?> HTMLButtonElement
 let saveFileBtn = getHtml "save" :?> HTMLButtonElement
 let runSimulationBtn : HTMLButtonElement = getHtml "run" :?> HTMLButtonElement
+let stopSimulationBtn : HTMLButtonElement = getHtml "stop" :?> HTMLButtonElement
 let resetSimulationBtn = getHtml "reset" :?> HTMLButtonElement
 let stepForwardBtn = getHtml "stepf" :?> HTMLButtonElement
 let stepBackBtn = getHtml "stepb" :?> HTMLButtonElement
+let copyCodeBtn = getHtml "copy-code" :?> HTMLButtonElement
 /// get byte/word switch button element
 let byteViewBtn = getHtml "byte-view"
 

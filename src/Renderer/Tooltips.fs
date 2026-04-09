@@ -420,7 +420,7 @@ let makeTooltip (theme : string) (placement : string) (clickable : bool) (button
             "html" ==> tooltip
             "hideOnClick" ==> if clickable then true :> obj else button :> obj
             "interactive" ==> not clickable
-            "delay" ==> if button then "[1300,0]" else "0"
+            "delay" ==> if button then "[400,0]" else "0"
             "arrow" ==> true
             "trigger" ==> if clickable then "click" else "mouseenter"
             "arrowType" ==> "round"
@@ -473,6 +473,12 @@ let addFixedToolTips() =
     makeTextTT "bottom" "clock-time" [ "tootip-fixed" ] "Instructions : clock cycles"
     makeTextTT "bottom" "BR15" [ "tootip-fixed" ] "R15 (PC) is the Program Counter <br> It cannot be used as a data register"
     makeTextTT "left" "BR14" [ "tootip-fixed" ] "R14 (LR) is the Link Register <br> It can be used as a data register"
+    makeButtonTT "bottom" "stepb" [ "tooltip-fixed" ] "Step Back — go back one instruction"
+    makeButtonTT "bottom" "run" [ "tooltip-fixed" ] "Run / Pause — start or pause execution"
+    makeButtonTT "bottom" "stop" [ "tooltip-fixed" ] "Stop — halt running execution"
+    makeButtonTT "bottom" "stepf" [ "tooltip-fixed" ] "Step Forward — execute one instruction"
+    makeButtonTT "bottom" "reset" [ "tooltip-fixed" ] "Reset — clear all state and start over"
+    makeButtonTT "bottom" "copy-code" [ "tooltip-fixed" ] "Copy all code to clipboard"
     makeButtonTT "bottom" "tab-sym" [ "tootip-fixed" ] "Displays symbols (labels) <br> after execution has started"
     makeButtonTT "bottom" "tab-mem" [ "tootip-fixed" ] "Displays current data memory contents after execution has started <br> Words are added dynamically when they are written"
     makeButtonTT "bottom" "tab-reg" [ "tooltip-fixed" ] "Displays current register contents"

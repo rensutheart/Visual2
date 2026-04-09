@@ -29,23 +29,25 @@
                 </div>
                 <!-- btn-group -->
 
-                <button id="run" class="btn btn-fixed btn-default button-run">
-                    <span class="icon icon-play"></span> Run
-                </button>
-                <!-- run btn -->
+                <div class="btn-group exec-controls">
+                    <button id="stepb" class="btn btn-default btn-exec" disabled>
+                        <span class="icon icon-to-start"></span>
+                    </button>
+                    <button id="run" class="btn btn-default btn-exec btn-exec-run">
+                        <span id="run-icon" class="icon icon-play"></span>
+                        <span id="run-label">Run</span>
+                    </button>
+                    <button id="stop" class="btn btn-default btn-exec" disabled>
+                        <span class="icon icon-stop"></span>
+                    </button>
+                    <button id="stepf" class="btn btn-default btn-exec">
+                        <span class="icon icon-to-end"></span>
+                    </button>
+                </div>
 
-                <button id="reset" class="btn btn-default" style="padding: 2px 10px;">
-                    <span class="icon icon-arrows-ccw" style="margin-right: 3px;"></span> Reset
+                <button id="reset" class="btn btn-default btn-exec-reset" disabled>
+                    <span class="icon icon-arrows-ccw"></span>
                 </button>
-
-                <button id="stepb" class="btn btn-default button-back">
-                    Step
-                </button>
-
-                <button id="stepf" class="btn btn-default button-forward">
-                    Step
-                </button>
-
 
                 <button id="status-bar" class="btn btn-large btn-default" disabled>
                     -
@@ -56,6 +58,10 @@
                     <button id="clock-time" class="btn btn-large btn-default">-</button>
                 </div>
 
+
+                <button id="copy-code" class="btn btn-default" style="padding: 2px 10px;">
+                    <span class="icon icon-clipboard" style="margin-right: 3px;"></span> Copy Code
+                </button>
 
                 <div class="btn-group pull-right">
                     <button id="rep-hex" class="btn btn-rep btn-rep-enabled">Hex</button>

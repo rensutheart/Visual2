@@ -81,10 +81,22 @@ let init() =
 
     Refs.saveFileBtn.addEventListener_click (fun _ -> MenuBar.interlock "save file" Files.saveFile)
 
+    Refs.copyCodeBtn.addEventListener_click (fun _ ->
+        if Refs.currentFileTabId >= 0 then
+            let code = Refs.getCode Refs.currentFileTabId
+            electron.remote.clipboard.writeText code
+        :> obj
+    )
+
     Refs.runSimulationBtn.addEventListener_click (fun _ ->
         Stats.readOnlineInfo Stats.RunningCode
         Integration.runCode ExecutionTop.NoBreak () :> obj
     )
+
+    Refs.stopSimulationBtn.addEventListener_click (fun _ ->
+        Integration.runCode ExecutionTop.NoBreak () :> obj
+    )
+
     stepForwardBtn.addEventListener_click (fun _ ->
         Integration.stepCode() :> obj
     )

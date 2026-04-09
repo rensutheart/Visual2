@@ -344,6 +344,25 @@ let testMenu() =
         ]
 
 
+let samplesMenu() =
+    makeMenu "Samples" [
+        makeMenu "Algorithms" [
+            makeItem "Karatsuba Multiplication" Core.Option.None (interlockAction "load karatsuba" (loadSample "karatsuba.s"))
+        ]
+        makeMenu "Display" [
+            makeItem "Display Test" Core.Option.None (interlockAction "load display test" (loadSample "display_test.s"))
+            makeItem "South African Flag" Core.Option.None (interlockAction "load SA flag" (loadSample "sa_flag.s"))
+            makeItem "Mandelbrot Set" Core.Option.None (interlockAction "load mandelbrot" (loadSample "mandelbrot.s"))
+        ]
+        makeMenu "Animations" [
+            makeItem "Display Animation" Core.Option.None (interlockAction "load display animation" (loadSample "display_animation.s"))
+            makeItem "Bouncing Ball" Core.Option.None (interlockAction "load bouncing ball" (loadSample "bouncing_ball.s"))
+            makeItem "Radar Sweep" Core.Option.None (interlockAction "load radar sweep" (loadSample "radar_sweep.s"))
+            makeItem "Game of Life" Core.Option.None (interlockAction "load game of life" (loadSample "game_of_life.s"))
+            makeItem "Spirograph Curves" Core.Option.None (interlockAction "load spirograph" (loadSample "spirograph.s"))
+        ]
+    ]
+
 let helpMenu() =
         makeMenu "Help" (
             [
@@ -355,16 +374,6 @@ let helpMenu() =
                 makeItem "UAL instruction guide" Core.Option.None (runExtPage <| visualDocsPage "guide#content")
                 makeItem "Testbenches" Core.Option.None (runExtPage <| visualDocsPage "testbench")
                 makeItem "Official ARM documentation" Core.Option.None (runExtPage "http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0234b/i1010871.html")
-                menuSeparator
-                makeItem "Load complex demo code" Core.Option.None (interlockAction "load code" loadDemo)
-                makeItem "Load display demo code" Core.Option.None (interlockAction "load display demo" loadDisplayDemo)
-                makeItem "Load display animation demo" Core.Option.None (interlockAction "load animation demo" loadDisplayAnimationDemo)
-                menuSeparator
-                makeItem "Radar Sweep" Core.Option.None (interlockAction "load radar sweep" (loadSample "radar_sweep.s"))
-                makeItem "Game of Life" Core.Option.None (interlockAction "load game of life" (loadSample "game_of_life.s"))
-                makeItem "Mandelbrot Set" Core.Option.None (interlockAction "load mandelbrot" (loadSample "mandelbrot.s"))
-                makeItem "Spirograph Curves" Core.Option.None (interlockAction "load spirograph" (loadSample "spirograph.s"))
-                makeItem "Bouncing Ball" Core.Option.None (interlockAction "load bouncing ball" (loadSample "bouncing_ball.s"))
                 makeCondItem (debugLevel > 0) "Run dev tools FABLE checks" Core.Option.None (interlockAction "FABLE checks" Integration.runTestbench)
                 makeCondItem (debugLevel > 0) "Run Emulator Tests" Core.Option.None (interlockAction "run tests" Tests.runAllEmulatorTests)
                 menuSeparator
@@ -389,8 +398,9 @@ let mainMenu() =
             fileMenu()
             editMenu()
             viewMenu()
-            helpMenu()
+            samplesMenu()
             testMenu()
+            helpMenu()
         ]
     template
     |> electron.remote.Menu.buildFromTemplate
