@@ -20,6 +20,7 @@ test-results/*
 .fable-linux/
 .fable-win32/
 dotnet-install.ps1
+global.json
 yarn.lock
 .ionide/
 
