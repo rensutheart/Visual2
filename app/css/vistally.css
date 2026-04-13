@@ -204,7 +204,7 @@
     text-align: center;
     height: 100%;
     overflow: hidden;
-    background-color: black;
+    background-color: #272822;
 }
 
 .monaco-editor {

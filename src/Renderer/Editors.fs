@@ -61,8 +61,11 @@ let updateAllEditors readOnly =
     let theme = Refs.vSettings.EditorTheme
     Refs.setFilePaneBackground (
         match theme with
-        | "one-light-pro" | "solarised-light" -> "white"
-        | _ -> "black")
+        | "one-light-pro" -> "#EDF9FA"
+        | "solarised-light" -> "#fdf6e3"
+        | "solarised-dark" -> "#002b36"
+        | "one-dark-pro" -> "#1E1E1E"
+        | "visual-classic" | _ -> "#272822")
     setTheme (theme) |> ignore
     setCustomCSS "--editor-font-size" (sprintf "%spx" vSettings.EditorFontSize)
 
