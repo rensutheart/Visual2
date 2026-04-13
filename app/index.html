@@ -82,7 +82,14 @@
                             <span class="icon icon-plus"></span>
                         </div>
                     </div>
-                    <div id="darken-overlay" class="invisible"></div>
+                    <div id="darken-overlay" class="invisible">
+                        <div id="editor-readonly-hint">
+                            <span class="icon icon-arrows-ccw"></span> Reset to edit code
+                        </div>
+                    </div>
+                    <div id="editor-readonly-toast" class="invisible">
+                        <span class="icon icon-arrows-ccw"></span> Reset to edit code
+                    </div>
                 </div>
                 <!-- editor -->
 
@@ -278,7 +285,8 @@
                     <!-- window-content -->
                     <footer id="viewer-footer" class="toolbar toolbar-footer">
                         <div id="flags" class="pull-right" style="margin: 5px">
-                            <span style="font-size: 13px; font-weight: 600; color: #555; margin-right: 6px; vertical-align: middle;">CPSR</span>
+                            <span
+                                style="font-size: 13px; font-weight: 600; color: #555; margin-right: 6px; vertical-align: middle;">CPSR</span>
                             <div class="btn-group btn-flag-group">
                                 <button class="btn btn-flag">N</button>
                                 <button id="flag_N" class="btn btn-flag-con">0</button>

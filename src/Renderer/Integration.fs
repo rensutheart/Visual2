@@ -218,8 +218,10 @@ let showInfoFromCurrentMode() =
         // Only update display during intermediate GUI refreshes if we are NOT
         // in DisplayBreak mode. In DisplayBreak mode the display is rendered
         // only at the R10 trigger point, avoiding mid-frame tearing on larger grids.
+        // However, always update when the program has actually terminated (PSExit,
+        // PSError, PSBreak) so the final frame is rendered even without an R10 trigger.
         match runMode with
-        | ActiveMode(Running, ri) when ri.BreakCond = DisplayBreak -> ()
+        | ActiveMode(Running, ri) when ri.BreakCond = DisplayBreak && ri.State = PSRunning -> ()
         | _ -> updateDisplay()
         updateClockTime ((ri.StepsDone |> uint64), (ri.CyclesDone |> uint64)) |> ignore
     | _ -> ()
@@ -293,7 +295,6 @@ let highlightCurrentAndNextIns classname pInfo tId =
         match Map.tryFind (WA lr) pInfo.IMem with
         | Some(_, lrLineNo) -> highlightLine tId lrLineNo "editor-line-highlight-lr"
         | None -> ()
-
 
 let handleTest (pInfo : RunInfo) =
     match pInfo.TestState, pInfo.State with
@@ -494,9 +495,11 @@ let rec asmStepDisplay (breakc : BreakCondition) steps ri' =
                 if running && (int64 Refs.vSettings.SimulatorMaxSteps) <> 0L then showVexAlert (loopMessage())
             | PSError e -> // Something went wrong causing a run-time error
                 UpdateGUIFromRunState ri'
+                showInfoFromCurrentMode()
             | PSBreak // execution met a valid break condition
             | PSExit -> // end-of-program termination (from END or implicit drop off code section)
                 UpdateGUIFromRunState ri'
+                showInfoFromCurrentMode()
 
     match runMode with
     | ActiveMode(Stopping, ri') -> // pause execution from GUI button

@@ -84,6 +84,39 @@ let enableEditors() =
     Refs.fileTabMenu.onclick <- (fun _ -> createObj [])
     updateEditor Refs.currentFileTabId false
     Refs.darkenOverlay.classList.add ([| "invisible" |])
+    // Hide the reset hint toast if visible
+    let hint = Refs.getHtml "editor-readonly-toast"
+    hint.classList.add ("invisible")
+
+/// Timer ID for auto-hiding the reset hint toast
+let mutable private resetHintTimerId : float option = None
+
+/// Show a temporary "Reset to edit" toast when user tries to type in read-only editor
+let showResetHintToast () =
+    let toast = Refs.getHtml "editor-readonly-toast"
+    toast.classList.remove ("invisible")
+    // Cancel any existing hide timer
+    match resetHintTimerId with
+    | Some id -> Browser.window.clearTimeout id
+    | None -> ()
+    // Auto-hide after 2 seconds
+    resetHintTimerId <-
+        Some (Browser.window.setTimeout (
+            (fun () ->
+                toast.classList.add ("invisible")
+                resetHintTimerId <- None),
+            2000, []))
+
+/// Install a document-level keydown listener that shows the reset hint
+/// when the user tries to type while the editor is read-only.
+let installReadonlyKeyHandler () =
+    Browser.document.addEventListener_keydown (fun e ->
+        if not (Refs.darkenOverlay.classList.contains "invisible") then
+            let key = e.key
+            // Only trigger on printable characters, not modifiers/navigation
+            if key.Length = 1 || key = "Backspace" || key = "Delete" || key = "Enter" || key = "Tab" then
+                showResetHintToast ()
+        createObj [])
 
 let mutable decorations : obj list = []
 let mutable lineDecorations : obj list = []

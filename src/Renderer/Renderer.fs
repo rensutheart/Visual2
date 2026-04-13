@@ -186,6 +186,8 @@ let init() =
 
     Tooltips.addFixedToolTips()
 
+    Editors.installReadonlyKeyHandler()
+
     Stats.readOnlineInfo Stats.Startup
 
 /// top-level function that runs the renderer code
