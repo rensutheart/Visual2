@@ -24,12 +24,9 @@ const packagerArgs = [
   "--ignore=/dist-linux",
   "--ignore=/dist-win32",
   "--ignore=/src",
-  "--overwrite"
+  "--overwrite",
+  "--asar"
 ];
-
-if (targetPlatform !== "win32") {
-  packagerArgs.push("--asar");
-}
 
 if (targetPlatform === "darwin") {
   packagerArgs.push("--icon=app/visual.ico.icns");

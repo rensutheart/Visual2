@@ -261,7 +261,52 @@ This runs `electron-packager` to create `dist-darwin/VisUAL2-SU-darwin-x64/`.
 > zip -r VisUAL2-SU-v$(node -p "require('../package.json').version")-macOS-x64.zip VisUAL2-SU-darwin-x64/
 > ```
 
-### macOS (Intel), Windows, Linux
+### Windows
+
+#### 1. Install .NET Core SDK 2.1
+
+Download and install [.NET Core SDK 2.1](https://dotnet.microsoft.com/download/dotnet/2.1). If you have a newer .NET SDK installed system-wide, you must ensure SDK 2.1 is used during the build.
+
+> **Important:** Create a **temporary** `global.json` in the project root to pin the SDK version during the build, then **delete it immediately after**. Leaving `global.json` in place will break `start.js` and other scripts that use the system dotnet.
+
+```powershell
+# Pin SDK 2.1 for the build
+Set-Content -Path "global.json" -Value '{"sdk":{"version":"2.1.818"}}' -Encoding UTF8
+
+# Ensure SDK 2.1 is on PATH (if installed to user-local location)
+$env:Path = "$env:LOCALAPPDATA\dotnet;" + $env:Path
+
+# Build
+node scripts/build.js
+
+# CRITICAL: Remove global.json after building!
+Remove-Item "global.json" -Force
+```
+
+#### 2. Test the build
+
+```powershell
+$env:NODE_PATH = "$PWD\node_modules-win32"
+& "node_modules-win32\.bin\electron.cmd" .
+```
+
+#### 3. Package for distribution
+
+```powershell
+node scripts/package.js win32
+```
+
+This creates `dist-win32\VisUAL2-SU-win32-x64\` with ASAR packaging enabled (bundles app files into a single `app.asar` archive for fast extraction).
+
+> **Critical: Zip with 7-Zip, NOT cross-zip or Compress-Archive.**
+> The `cross-zip` npm package (called automatically by `package.js`) uses PowerShell's `Compress-Archive`, which produces zip files that **WinRAR cannot extract** ("unexpected end of file" error). Always re-zip manually with 7-Zip:
+>
+> ```powershell
+> cd dist-win32
+> & "C:\Program Files\7-Zip\7z.exe" a -tzip "VisUAL2-SU-v<VERSION>-win32-x64.zip" "VisUAL2-SU-win32-x64"
+> ```
+
+### macOS (Intel), Linux, and General
 
 These platforms can use .NET Core 2.1 SDK natively.
 
@@ -279,10 +324,20 @@ yarn launch         # terminal 2: run the app
 
 # Production build + package
 yarn build
-yarn pack-win       # Windows binary → dist/
-yarn pack-linux     # Linux binary → dist/
-yarn pack-osx       # macOS binary → dist/ (macOS host only for DMG)
+yarn pack-win       # Windows binary → dist-win32/
+yarn pack-linux     # Linux binary → dist-linux/
+yarn pack-osx       # macOS binary → dist-darwin/ (macOS host only for DMG)
 ```
+
+### Known Build Pitfalls
+
+| Problem | Cause | Fix |
+|---------|-------|-----|
+| `start.js` or `dotnet` errors after building | `global.json` left in project root | Delete `global.json` immediately after `node scripts/build.js` |
+| WinRAR "unexpected end of file" on Windows zip | `cross-zip` / `Compress-Archive` produces non-standard zips | Re-zip with [7-Zip](https://www.7-zip.org/) |
+| Windows zip has ~27,000 files, slow to extract | `--asar` was disabled for win32 in `scripts/package.js` | Ensure `--asar` is in the packager args for all platforms |
+| `navigator.clipboard` doesn't work | Electron 2.x doesn't support the modern Clipboard API | Use `electron.remote.clipboard.writeText()` instead |
+| Build fails with wrong SDK version | Multiple .NET SDKs installed; wrong one picked | Use temporary `global.json` to pin SDK 2.1 during build |
 
 ---
 
@@ -297,6 +352,25 @@ This is the **Stellenbosch University (SU) edition** of [VisUAL2](https://github
 ## Changelog (SU Edition)
 
 All changes relative to the original [VisUAL2 v1.06.10](https://github.com/ImperialCollegeLondon/Visual2) from Imperial College London.
+
+### v2.2.4-SU
+
+**UI improvements**
+- Redesigned execution controls as media-player-style button group (Step Back, Run/Pause, Stop, Step Forward)
+- Run button swaps to Pause icon with amber highlight while simulation is running
+- Added Copy Code button (clipboard icon) to toolbar for copying editor contents
+- Tooltip styling overhaul: removed dark blue borders, added rounded corners, system sans-serif font
+- Faster tooltip delay (400ms instead of 1300ms)
+- Step icons changed to standard step-to-start / step-to-end style
+
+**Samples menu**
+- Moved sample programs from Help menu into a dedicated **Samples** menu
+- Organized into submenus: Algorithms, Display, and Animations
+- Added South African Flag sample to the Display submenu
+
+**Build & packaging**
+- Enabled ASAR packaging for Windows (reduces zip from ~27,000 files to ~117 files)
+- Windows zip now decompresses in seconds instead of minutes
 
 ### v2.2.3-SU
 
