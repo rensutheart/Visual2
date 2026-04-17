@@ -89,7 +89,10 @@ let makePrefsWindow() =
         prefsWindow <- Option.None
     )) |> ignore
 
-    prefs.loadURL (Node.Exports.path.join ("file://", Node.Globals.__dirname, url))
+    // Encode '#' as '%23' in path to prevent it being treated as URL fragment
+    let dirPath = (Node.Globals.__dirname).Replace("#", "%23").Replace("\\", "/")
+    let prefsUrl = "file://" + dirPath + "/" + url
+    prefs.loadURL prefsUrl
 
     prefsWindow <- prefs |> Some
 

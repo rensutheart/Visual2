@@ -4,6 +4,7 @@ app/js/*.js*
 !app/js/*.min.js
 !app/js/*monaco-init.js
 app/js/vs
+!app/js/vs/loader.js
 node_modules
 node_modules-darwin
 node_modules-linux

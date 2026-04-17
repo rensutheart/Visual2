@@ -28,7 +28,12 @@ function uriFromPath(_path) {
   if (pathName.length > 0 && pathName.charAt(0) !== "/") {
     pathName = "/" + pathName;
   }
-  return encodeURI("file://" + pathName);
+  var uri = encodeURI("file://" + pathName);
+  // encodeURI does not encode '#', but '#' in file paths must be
+  // encoded as '%23' to prevent the browser treating it as a fragment.
+  // The paired fix in vs/loader.js (decodeURIComponent) ensures the
+  // loader decodes '%23' back to '#' for filesystem access.
+  return uri.replace(/#/g, "%23");
 }
 amdRequire.config({
   //baseUrl: uriFromPath(path.join(__dirname, '../node_modules/monaco-editor/min'))
