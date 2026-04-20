@@ -390,15 +390,57 @@ let indentProgram lim lines =
         | [] -> ""
         | [ opc ] -> opc
         | opc :: rest -> leftAlign opCols opc + String.concat " " rest
-    let indentLine (line : string) =
-        match splitIntoWords line with
+    /// Split a line into (code, comment option) where comment includes the delimiter
+    let splitComment (line : string) =
+        // Find the earliest line comment delimiter (; or //)
+        let semiIdx = line.IndexOf(';')
+        let slashIdx = line.IndexOf("//")
+        let commentIdx =
+            match semiIdx, slashIdx with
+            | -1, -1 -> -1
+            | -1, s -> s
+            | s, -1 -> s
+            | s1, s2 -> min s1 s2
+        if commentIdx < 0 then
+            (line, None)
+        elif commentIdx = 0 then
+            ("", Some line)
+        else
+            (line.[0..commentIdx-1], Some (line.[commentIdx..]))
+    let indentCode (code : string) =
+        match splitIntoWords code with
         | [] -> ""
         | lab :: rest when isSymbol lab ->
             leftAlign n lab + instr rest
         | lab :: rest -> spaces n + instr (lab :: rest)
         | [ lab ] when isSymbol lab -> lab
         | [ lab ] -> spaces n + lab
-    List.map indentLine lines
+    // Split all lines into code and comment parts, indent only the code
+    let parts = lines |> List.map (fun line ->
+        let (code, comment) = splitComment line
+        (indentCode code, comment))
+    // Compute comment alignment column: max indented code length among lines that have comments
+    let minCommentCol = 30
+    let commentCol =
+        parts
+        |> List.choose (fun (code, comment) ->
+            match comment with
+            | Some _ -> Some code.Length
+            | None -> None)
+        |> function
+            | [] -> minCommentCol
+            | lengths -> max minCommentCol (List.max lengths + 1)
+    // Reassemble lines with aligned comments
+    parts |> List.map (fun (code, comment) ->
+        match comment with
+        | None -> code
+        | Some c ->
+            if code = "" then
+                // Comment-only line: indent at standard code level
+                spaces n + c
+            else
+                let padded = code + spaces (commentCol - code.Length)
+                padded + c)
 
 /// Version of assembly line with whitespace removed that allows
 /// indented code to be compared with original code

@@ -251,6 +251,8 @@ let highlightCurrentAndNextIns classname pInfo tId =
             // Branch tooltip: show branch info button on branch instructions
             match condInstr.InsExec with
             | IBRANCH branchInstr when branchInstr <> Branch.END ->
+                let branchTaken =
+                    condInstr.Cond = Cal || Helpers.condExecute condInstr.Cond dp
                 let condStr =
                     if condInstr.Cond = Cal then "N/A"
                     else
@@ -259,10 +261,20 @@ let highlightCurrentAndNextIns classname pInfo tId =
                         sprintf "%s (%s)" condName (if condMet then "True" else "False")
                 let srcAddr = dp.Regs.[R15]
                 let destPC = (fst pInfo.dpCurrent).Regs.[R15]
+                let destLineOpt =
+                    Map.tryFind (WA destPC) pInfo.IMem
+                    |> Option.map snd
                 let destLineStr =
-                    match Map.tryFind (WA destPC) pInfo.IMem with
-                    | Some(_, dLine) -> sprintf "%d" dLine
+                    match destLineOpt with
+                    | Some dLine -> sprintf "%d" dLine
                     | None -> "N/A"
+                // Highlight branch target and draw arrow if branch is taken
+                if branchTaken then
+                    match destLineOpt with
+                    | Some destLine ->
+                        highlightLine tId destLine "editor-line-highlight-branch-target"
+                        Editors.drawBranchArrow tId lineNo destLine
+                    | None -> ()
                 let TROWS s =
                     (List.map (fun s -> s |> Refs.toDOM |> Refs.TD) >> Refs.TROW) s
                 let tipDom =

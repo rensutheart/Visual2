@@ -41,7 +41,7 @@ let editorOptions (readOnly : bool) =
                         "automaticLayout" ==> true;
                         "minimap" ==> createObj [ "enabled" ==> false ];
                         "glyphMargin" ==> true
-                        "renderLineHighlight" ==> "all"
+                        "renderLineHighlight" ==> (if readOnly then "none" else "all")
               ]
 
 
@@ -69,27 +69,6 @@ let updateAllEditors readOnly =
     setTheme (theme) |> ignore
     setCustomCSS "--editor-font-size" (sprintf "%spx" vSettings.EditorFontSize)
 
-
-// Disable the editor and tab selection during execution
-let disableEditors() =
-    Refs.fileTabMenu.classList.add ("disabled-click")
-    Refs.fileTabMenu.onclick <- (fun _ ->
-        showVexAlert ("Cannot change tabs during execution")
-        createObj []
-    )
-    updateEditor Refs.currentFileTabId true
-    Refs.darkenOverlay.classList.remove ("invisible")
-    Refs.darkenOverlay.classList.add ([| "disabled-click" |])
-
-// Enable the editor once execution has completed
-let enableEditors() =
-    Refs.fileTabMenu.classList.remove ("disabled-click")
-    Refs.fileTabMenu.onclick <- (fun _ -> createObj [])
-    updateEditor Refs.currentFileTabId false
-    Refs.darkenOverlay.classList.add ([| "invisible" |])
-    // Hide the reset hint toast if visible
-    let hint = Refs.getHtml "editor-readonly-toast"
-    hint.classList.add ("invisible")
 
 /// Timer ID for auto-hiding the reset hint toast
 let mutable private resetHintTimerId : float option = None
@@ -139,11 +118,32 @@ let lineDecoration _editor _decorations _range _name = jsNative
 let removeDecorations _editor _decorations =
     jsNative
 
+/// Set of line numbers that currently have execution highlights
+let mutable executionHighlightedLines : Set<int> = Set.empty
+
+/// Hover decoration handle (separate from execution decorations)
+let mutable private hoverDecoration : obj list = []
+/// Disposables for hover event handlers
+let mutable private hoverDisposables : obj list = []
+
+/// Mutable reference to the branch arrow SVG overlay element
+let mutable private branchArrowOverlay : Browser.HTMLElement option = None
+
+/// Remove any existing branch arrow overlay
+let removeBranchArrowOverlay () =
+    match branchArrowOverlay with
+    | Some el ->
+        el.parentNode.removeChild el |> ignore
+        branchArrowOverlay <- None
+    | None -> ()
+
 // Remove all text decorations associated with an editor (NOT breakpoint decorations)
 let removeEditorDecorations tId =
     if tId <> -1 then
         List.iter (fun x -> removeDecorations Refs.editors.[tId] x) decorations
         decorations <- []
+        executionHighlightedLines <- Set.empty
+    removeBranchArrowOverlay ()
 
 /// Add a breakpoint glyph decoration to a line
 let addBreakpointGlyph tId lineNo =
@@ -230,6 +230,7 @@ let editorLineDecorate editor number decoration (rangeOpt : (int * int) option) 
 
 // highlight a particular line
 let highlightLine tId number className =
+    executionHighlightedLines <- Set.add number executionHighlightedLines
     editorLineDecorate
         Refs.editors.[tId]
         number
@@ -253,6 +254,143 @@ let highlightGlyph tId number glyphClassName =
 
 let highlightNextInstruction tId number =
     if number > 0 then highlightGlyph tId number "editor-glyph-margin-arrow"
+
+/// Draw a branch arrow on the right side of the editor from srcLine to destLine
+let drawBranchArrow tId srcLine destLine =
+    removeBranchArrowOverlay ()
+    if tId < 0 || srcLine <= 0 || destLine <= 0 then ()
+    else
+        let editor = Refs.editors.[tId]
+        let domNode : Browser.HTMLElement = editor?getDomNode ()
+        if isNull (unbox domNode) then ()
+        else
+            let scrollTop : float = editor?getScrollTop ()
+            let srcTop : float = editor?getTopForLineNumber (srcLine)
+            let destTop : float = editor?getTopForLineNumber (destLine)
+            let lineHeight : float =
+                let opts = editor?getConfiguration ()
+                let fontInfo = opts?fontInfo
+                fontInfo?lineHeight
+            // srcY = bottom edge of source line if branching down, top edge if up
+            // destY = top edge of dest line if branching down, bottom edge if up
+            let branchDown = destLine > srcLine
+            let srcY =
+                if branchDown then srcTop - scrollTop + lineHeight
+                else srcTop - scrollTop
+            let destY =
+                if branchDown then destTop - scrollTop
+                else destTop - scrollTop + lineHeight
+            let layoutInfo = editor?getLayoutInfo ()
+            let editorWidth : float = layoutInfo?width
+            let minimapWidth : float = layoutInfo?minimapWidth
+            let verticalScrollbarWidth : float = layoutInfo?verticalScrollbarWidth
+            // Position the SVG line at the right edge of the code area
+            let lineX = editorWidth - minimapWidth - verticalScrollbarWidth - 12.0
+            let svgWidth = 24.0
+            let pad = 6.0
+            let minY = min srcY destY - pad
+            let maxY = max srcY destY + pad
+            let svgHeight = maxY - minY
+            let svg = Browser.document.createElementNS ("http://www.w3.org/2000/svg", "svg")
+            svg.setAttribute ("width", sprintf "%.0f" svgWidth)
+            svg.setAttribute ("height", sprintf "%.0f" svgHeight)
+            (svg :?> Browser.HTMLElement).style.position <- "absolute"
+            (svg :?> Browser.HTMLElement).style.left <- sprintf "%.0fpx" (lineX - svgWidth / 2.0)
+            (svg :?> Browser.HTMLElement).style.top <- sprintf "%.0fpx" minY
+            (svg :?> Browser.HTMLElement).style.pointerEvents <- "none"
+            (svg :?> Browser.HTMLElement).style.zIndex <- "5"
+            let localSrcY = srcY - minY
+            let localDestY = destY - minY
+            let cx = svgWidth / 2.0
+            // Straight line from source edge to destination edge
+            let line = Browser.document.createElementNS ("http://www.w3.org/2000/svg", "line")
+            line.setAttribute ("x1", sprintf "%.1f" cx)
+            line.setAttribute ("y1", sprintf "%.1f" localSrcY)
+            line.setAttribute ("x2", sprintf "%.1f" cx)
+            line.setAttribute ("y2", sprintf "%.1f" localDestY)
+            line.setAttribute ("stroke", "#3C7770")
+            line.setAttribute ("stroke-width", "1.5")
+            // Arrowhead pointing at destination
+            let arrowSize = 5.0
+            let arrowDir = if branchDown then -1.0 else 1.0
+            let arrowHead = Browser.document.createElementNS ("http://www.w3.org/2000/svg", "polygon")
+            let arrowPoints =
+                sprintf "%.1f,%.1f %.1f,%.1f %.1f,%.1f"
+                    cx localDestY
+                    (cx - arrowSize) (localDestY + arrowDir * arrowSize)
+                    (cx + arrowSize) (localDestY + arrowDir * arrowSize)
+            arrowHead.setAttribute ("points", arrowPoints)
+            arrowHead.setAttribute ("fill", "#3C7770")
+            svg.appendChild line |> ignore
+            svg.appendChild arrowHead |> ignore
+            // Find the editor's overflow-guard container to append the SVG
+            let overflowGuard = domNode.querySelector ".overflow-guard"
+            if not (isNull (unbox overflowGuard)) then
+                overflowGuard.appendChild svg |> ignore
+                branchArrowOverlay <- Some (svg :?> Browser.HTMLElement)
+
+let private removeHoverDecoration tId =
+    if tId <> -1 && not (List.isEmpty hoverDecoration) then
+        List.iter (fun x -> removeDecorations Refs.editors.[tId] x) hoverDecoration
+        hoverDecoration <- []
+
+let private installHoverHighlight tId =
+    if tId <> -1 then
+        let editor = Refs.editors.[tId]
+        let d1 =
+            editor?onMouseMove (fun (e : obj) ->
+                let target = e?target
+                let position = target?position
+                if Refs.isUndefined position || isNull (unbox position) then
+                    removeHoverDecoration tId
+                else
+                    let lineNo : int = position?lineNumber
+                    if Set.contains lineNo executionHighlightedLines then
+                        removeHoverDecoration tId
+                    else
+                        removeHoverDecoration tId
+                        let newDec = lineDecoration editor
+                                        []
+                                        (monacoRange lineNo 1 lineNo 1)
+                                        (createObj [
+                                            "isWholeLine" ==> true
+                                            "className" ==> "editor-line-hover"
+                                        ])
+                        hoverDecoration <- [newDec]
+                createObj [])
+        let d2 =
+            editor?onMouseLeave (fun _ ->
+                removeHoverDecoration tId
+                createObj [])
+        hoverDisposables <- [d1; d2]
+
+let private removeHoverHighlight tId =
+    List.iter (fun (d : obj) -> d?dispose () |> ignore) hoverDisposables
+    hoverDisposables <- []
+    removeHoverDecoration tId
+
+// Disable the editor and tab selection during execution
+let disableEditors() =
+    Refs.fileTabMenu.classList.add ("disabled-click")
+    Refs.fileTabMenu.onclick <- (fun _ ->
+        showVexAlert ("Cannot change tabs during execution")
+        createObj []
+    )
+    updateEditor Refs.currentFileTabId true
+    installHoverHighlight Refs.currentFileTabId
+    Refs.darkenOverlay.classList.remove ("invisible")
+    Refs.darkenOverlay.classList.add ([| "disabled-click" |])
+
+// Enable the editor once execution has completed
+let enableEditors() =
+    Refs.fileTabMenu.classList.remove ("disabled-click")
+    Refs.fileTabMenu.onclick <- (fun _ -> createObj [])
+    updateEditor Refs.currentFileTabId false
+    removeHoverHighlight Refs.currentFileTabId
+    Refs.darkenOverlay.classList.add ([| "invisible" |])
+    // Hide the reset hint toast if visible
+    let hint = Refs.getHtml "editor-readonly-toast"
+    hint.classList.add ("invisible")
 
 /// <summary>
 /// Decorate a line with an error indication and set up a hover message.

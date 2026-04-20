@@ -289,6 +289,10 @@ let editMenu() =
         makeItem "Find" (Some "CmdOrCtrl+F") Files.editorFind
         makeItem "Replace" (Some "CmdOrCtrl+H") Files.editorFindReplace
         menuSeparator
+        makeItem "Format Code" (Some "CmdOrCtrl+Shift+F") (fun () ->
+            if currentFileTabId >= 0 then
+                Integration.tryParseAndIndentCode currentFileTabId |> ignore)
+        menuSeparator
         makeItem "Increase Font Size" (Some "CmdOrCtrl+.") (fun () -> Settings.alterFontSize 2)
         makeItem "Decrease Font Size" (Some "CmdOrCtrl+,") (fun () -> Settings.alterFontSize -2)
         makeItem "Preferences" Core.Option.None (interlockAction "show preferences tab" createSettingsTab)

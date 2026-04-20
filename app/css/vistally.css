@@ -247,20 +247,20 @@
 
 .editor-line-highlight-cond-true {
     font-weight: bolder;
-    background-color: rgba(56, 141, 76, 0.45)
+    background-color: #3C7770
 }
 
 .editor-line-highlight-cond-true-margin {
-    background-color: rgba(56, 141, 76, 0.45);
+    background-color: #3C7770;
 }
 
 .editor-line-highlight-cond-false {
     font-weight: bolder;
-    background-color: rgba(180, 29, 29, 0.4)
+    background-color: #733C3F
 }
 
 .editor-line-highlight-cond-false-margin {
-    background-color: rgba(180, 29, 29, 0.4);
+    background-color: #733C3F;
 }
 
 .editor-line-highlight-next {
@@ -280,14 +280,25 @@
     background-color: rgba(120, 70, 180, 0.45);
 }
 
+.editor-line-highlight-branch-target {
+    background-color: rgba(60, 119, 112, 0.3);
+}
+
+.editor-line-highlight-branch-target-margin {
+    background-color: rgba(60, 119, 112, 0.3);
+}
+
 .info-button-branch {
     background-color: #4A3973;
     color: white;
-    border: none;
+    border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: 3px;
     padding: 1px 6px;
     font-size: 11px;
     cursor: pointer;
+    vertical-align: middle;
+    line-height: 1.4;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 .editor-line-highlight-error {
@@ -297,6 +308,11 @@
 
 .editor-line-highlight-error-margin {
     background-color: rgba(180, 29, 79, 0.5);
+}
+
+/* Hover highlight for non-decorated lines during execution mode */
+.editor-line-hover {
+    background-color: #535353;
 }
 
 .disabled-click {
@@ -648,27 +664,42 @@ div.after {
 
 /* tooltip-info-button sizing */
 .info-button-pointer {
-    font-size: calc( 0.6 * var(--editor-font-size));
-    padding-top: 0px;
-    margin-top: 0px;
+    background-color: #2e7d32;
     color: white;
-    background-color: green;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+    padding: 1px 6px;
+    font-size: 11px;
+    cursor: pointer;
+    vertical-align: middle;
+    line-height: 1.4;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 .info-button-stack {
-    font-size: calc( 0.6 * var(--editor-font-size));
-    padding-top: 0px;
-    margin-top: 0px;
+    background-color: #b8860b;
     color: white;
-    background-color: darkgoldenrod;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+    padding: 1px 6px;
+    font-size: 11px;
+    cursor: pointer;
+    vertical-align: middle;
+    line-height: 1.4;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 .info-button-shift {
-    font-size: calc( 0.6 * var(--editor-font-size));
-    padding-top: 0px;
-    margin-top: 0px;
+    background-color: #1565c0;
     color: white;
-    background-color: blue;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+    padding: 1px 6px;
+    font-size: 11px;
+    cursor: pointer;
+    vertical-align: middle;
+    line-height: 1.4;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 .tooltip-stack-regs-light-theme {
     margin-left: 2px;
