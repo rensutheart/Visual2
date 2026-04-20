@@ -8,8 +8,10 @@
 /// implement electron-style persistent settings via electron-settings module
 
 module Settings
+open Fable.Import
 open Fable.Import.Browser
 open Fable.Core.JsInterop
+open Node.Exports
 
 open Refs
 open Tabs
@@ -207,3 +209,26 @@ let alterFontSize (n : int) =
         }
     Refs.setJSONSettings()
     updateAllEditors false
+
+let alterZoomLevel (delta : float) =
+    let wc = electron.remote.getCurrentWebContents()
+    let current : float = wc?getZoomLevel()
+    wc?setZoomLevel(current + delta)
+
+let alterFontAndZoom (n : int) =
+    alterFontSize n
+    let zoomDelta = if n > 0 then 1.0 else -1.0
+    alterZoomLevel zoomDelta
+
+let resetFontSize () =
+    Refs.vSettings <- checkSettings
+        { Refs.vSettings with
+            EditorFontSize = "16"
+        }
+    Refs.setJSONSettings()
+    updateAllEditors false
+
+let resetAll () =
+    resetFontSize ()
+    let wc = electron.remote.getCurrentWebContents()
+    wc?setZoomLevel(0.0)

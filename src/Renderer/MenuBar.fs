@@ -293,8 +293,9 @@ let editMenu() =
             if currentFileTabId >= 0 then
                 Integration.tryParseAndIndentCode currentFileTabId |> ignore)
         menuSeparator
-        makeItem "Increase Font Size" (Some "CmdOrCtrl+.") (fun () -> Settings.alterFontSize 2)
-        makeItem "Decrease Font Size" (Some "CmdOrCtrl+,") (fun () -> Settings.alterFontSize -2)
+        makeItem "Increase Font Size" (Some "CmdOrCtrl+=") (fun () -> Settings.alterFontSize 2)
+        makeItem "Decrease Font Size" (Some "CmdOrCtrl+-") (fun () -> Settings.alterFontSize -2)
+        makeItem "Reset All" (Some "CmdOrCtrl+0") (fun () -> Settings.resetAll ())
         makeItem "Preferences" Core.Option.None (interlockAction "show preferences tab" createSettingsTab)
     ]
 
@@ -304,8 +305,7 @@ let viewMenu() =
             makeRoleItem "Toggle Fullscreen" (Some "F11") MenuItemRole.Togglefullscreen
             menuSeparator
             makeRoleItem "Zoom In" (Some "CmdOrCtrl+Plus") MenuItemRole.Zoomin
-            makeRoleItem "Zoom Out" (Some "CmdOrCtrl+-") MenuItemRole.Zoomout
-            makeRoleItem "Reset Zoom" (Some "CmdOrCtrl+0") MenuItemRole.Resetzoom
+            makeRoleItem "Zoom Out" (Some "CmdOrCtrl+Shift+-") MenuItemRole.Zoomout
             menuSeparator
             makeCondItem (debugLevel > 0) "Toggle Dev Tools" (Some devToolsKey) (electron.remote.getCurrentWebContents()).toggleDevTools
         ]
