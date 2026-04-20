@@ -139,6 +139,12 @@ module ParseTop
         /// try to parse 1st word, or 2nd word, as opcode
         /// If 2nd word is opcode 1st word must be label
         let parseLine' words =
+            /// Strip trailing colon from first word (GNU syntax: "label:")
+            let words =
+                match words with
+                | (first : string) :: rest when first.EndsWith(":") ->
+                    first.[..first.Length-2] :: rest
+                | _ -> words
             let defParse lab = makeParse lab (Ok loadI)
             match [ "" ] @ words @ [ "" ] with
                 | "" :: TRYPARSE pa -> pa

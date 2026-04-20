@@ -384,7 +384,9 @@ let indentProgram lim lines =
     let leftAlign (n : int) (s : string) =
         s + spaces (n - s.Length)
     let n = lim.Indent
-    let isSymbol s = Map.containsKey s lim.SymInf.SymTab
+    let isSymbol (s : string) =
+        let s' = if s.EndsWith(":") then s.[..s.Length-2] else s
+        Map.containsKey s' lim.SymInf.SymTab
     let instr lis =
         match lis with
         | [] -> ""
