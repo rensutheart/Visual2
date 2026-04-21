@@ -286,7 +286,20 @@ let highlightCurrentAndNextIns classname pInfo tId =
                     ]
                 let hOffset = Editors.findCodeEnd (lineNo - 1)
                 Tooltips.makeEditorInfoButton Tooltips.lineTipsClickable (hOffset, lineNo, "top") "Branch" tipDom
-            | _ -> ()
+            | _ ->
+                // For any non-branch instruction that modifies the PC (e.g. MOV PC, R0; LDR PC, [...])
+                // detect the non-sequential jump and show the same destination highlight and arrow.
+                let prevPCAddr = dp.Regs.[R15]
+                let newPC = (fst pInfo.dpCurrent).Regs.[R15]
+                if newPC <> prevPCAddr + 4u then
+                    let destLineOpt =
+                        Map.tryFind (WA newPC) pInfo.IMem
+                        |> Option.map snd
+                    match destLineOpt with
+                    | Some destLine ->
+                        highlightLine tId destLine "editor-line-highlight-branch-target"
+                        Editors.drawBranchArrow tId lineNo destLine
+                    | None -> ()
         | Option.None
         | Some _ ->
             if dp.Regs.[R15] <> 0xFFFFFFFCu then
