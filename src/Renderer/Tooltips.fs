@@ -443,11 +443,26 @@ let makeEditorInfoButtonWithTheme theme (clickable : bool) (h, v, orientation) (
     let name = buttonText.ToLower()
     let domID = sprintf "info-button-%s-%d" name v
     let tooltip = ELEMENT "DIV" [ sprintf "tooltip-%s" name ] [ toolTipDOM ]
+    let lineHeightPx : float =
+        try
+            let ed = editors.[currentFileTabId]
+            let cfg = ed?getConfiguration ()
+            let fontInfo = cfg?fontInfo
+            let lh : float = fontInfo?lineHeight
+            if lh > 0.0 then lh else float (int vSettings.EditorFontSize) * 1.4
+        with _ -> float (int vSettings.EditorFontSize) * 1.4
     let dom =
         ELEMENT "BUTTON" [ sprintf "info-button-%s" name ] []
         |> INNERHTML buttonText
         |> ID domID
         |> STYLE ("margin-left", sprintf "%.0fpx" (editorFontWidthRatio * (float h + 2.0) * float (int vSettings.EditorFontSize)))
+        |> STYLE ("height", sprintf "%.0fpx" lineHeightPx)
+        |> STYLE ("line-height", sprintf "%.0fpx" lineHeightPx)
+        |> STYLE ("padding-top", "0")
+        |> STYLE ("padding-bottom", "0")
+        |> STYLE ("display", "inline-flex")
+        |> STYLE ("align-items", "center")
+        |> STYLE ("box-sizing", "border-box")
     dom.addEventListener_click (fun _ ->
         Browser.console.log (sprintf "Clicking button %s" buttonText) |> (fun _ -> createObj [])
         )

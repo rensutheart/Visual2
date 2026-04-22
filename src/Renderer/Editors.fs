@@ -255,7 +255,10 @@ let highlightGlyph tId number glyphClassName =
 let highlightNextInstruction tId number =
     if number > 0 then highlightGlyph tId number "editor-glyph-margin-arrow"
 
-/// Draw a branch arrow on the right side of the editor from srcLine to destLine
+/// Draw a branch arrow on the right side of the editor from srcLine to destLine.
+/// The SVG is appended to Monaco's .lines-content layer, which is automatically
+/// translated as the user scrolls, so the arrow stays anchored to its lines
+/// without any manual scroll handling.
 let drawBranchArrow tId srcLine destLine =
     removeBranchArrowOverlay ()
     if tId < 0 || srcLine <= 0 || destLine <= 0 then ()
@@ -264,70 +267,68 @@ let drawBranchArrow tId srcLine destLine =
         let domNode : Browser.HTMLElement = editor?getDomNode ()
         if isNull (unbox domNode) then ()
         else
-            let scrollTop : float = editor?getScrollTop ()
             let srcTop : float = editor?getTopForLineNumber (srcLine)
             let destTop : float = editor?getTopForLineNumber (destLine)
             let lineHeight : float =
                 let opts = editor?getConfiguration ()
                 let fontInfo = opts?fontInfo
                 fontInfo?lineHeight
-            // srcY = bottom edge of source line if branching down, top edge if up
-            // destY = top edge of dest line if branching down, bottom edge if up
             let branchDown = destLine > srcLine
             let srcY =
-                if branchDown then srcTop - scrollTop + lineHeight
-                else srcTop - scrollTop
+                if branchDown then srcTop + lineHeight
+                else srcTop
             let destY =
-                if branchDown then destTop - scrollTop
-                else destTop - scrollTop + lineHeight
+                if branchDown then destTop
+                else destTop + lineHeight
             let layoutInfo = editor?getLayoutInfo ()
-            let editorWidth : float = layoutInfo?width
-            let minimapWidth : float = layoutInfo?minimapWidth
-            let verticalScrollbarWidth : float = layoutInfo?verticalScrollbarWidth
-            // Position the SVG line at the right edge of the code area
-            let lineX = editorWidth - minimapWidth - verticalScrollbarWidth - 12.0
+            let contentWidth : float = layoutInfo?contentWidth
+            let lineX = contentWidth - 12.0
             let svgWidth = 24.0
             let pad = 6.0
             let minY = min srcY destY - pad
             let maxY = max srcY destY + pad
             let svgHeight = maxY - minY
-            let svg = Browser.document.createElementNS ("http://www.w3.org/2000/svg", "svg")
-            svg.setAttribute ("width", sprintf "%.0f" svgWidth)
-            svg.setAttribute ("height", sprintf "%.0f" svgHeight)
-            (svg :?> Browser.HTMLElement).style.position <- "absolute"
-            (svg :?> Browser.HTMLElement).style.left <- sprintf "%.0fpx" (lineX - svgWidth / 2.0)
-            (svg :?> Browser.HTMLElement).style.top <- sprintf "%.0fpx" minY
-            (svg :?> Browser.HTMLElement).style.pointerEvents <- "none"
-            (svg :?> Browser.HTMLElement).style.zIndex <- "5"
-            let localSrcY = srcY - minY
-            let localDestY = destY - minY
-            let cx = svgWidth / 2.0
-            // Straight line from source edge to destination edge
-            let line = Browser.document.createElementNS ("http://www.w3.org/2000/svg", "line")
-            line.setAttribute ("x1", sprintf "%.1f" cx)
-            line.setAttribute ("y1", sprintf "%.1f" localSrcY)
-            line.setAttribute ("x2", sprintf "%.1f" cx)
-            line.setAttribute ("y2", sprintf "%.1f" localDestY)
-            line.setAttribute ("stroke", "#3C7770")
-            line.setAttribute ("stroke-width", "1.5")
-            // Arrowhead pointing at destination
-            let arrowSize = 5.0
-            let arrowDir = if branchDown then -1.0 else 1.0
-            let arrowHead = Browser.document.createElementNS ("http://www.w3.org/2000/svg", "polygon")
-            let arrowPoints =
-                sprintf "%.1f,%.1f %.1f,%.1f %.1f,%.1f"
-                    cx localDestY
-                    (cx - arrowSize) (localDestY + arrowDir * arrowSize)
-                    (cx + arrowSize) (localDestY + arrowDir * arrowSize)
-            arrowHead.setAttribute ("points", arrowPoints)
-            arrowHead.setAttribute ("fill", "#3C7770")
-            svg.appendChild line |> ignore
-            svg.appendChild arrowHead |> ignore
-            // Find the editor's overflow-guard container to append the SVG
-            let overflowGuard = domNode.querySelector ".overflow-guard"
-            if not (isNull (unbox overflowGuard)) then
-                overflowGuard.appendChild svg |> ignore
-                branchArrowOverlay <- Some (svg :?> Browser.HTMLElement)
+            if svgHeight <= 0.0 then ()
+            else
+                let svg : obj = Browser.document?createElementNS ("http://www.w3.org/2000/svg", "svg")
+                svg?setAttribute ("width", sprintf "%.0f" svgWidth)
+                svg?setAttribute ("height", sprintf "%.0f" svgHeight)
+                let svgStyle = svg?style
+                svgStyle?position <- "absolute"
+                svgStyle?left <- sprintf "%.0fpx" (lineX - svgWidth / 2.0)
+                svgStyle?top <- sprintf "%.0fpx" minY
+                svgStyle?pointerEvents <- "none"
+                svgStyle?zIndex <- "5"
+                let localSrcY = srcY - minY
+                let localDestY = destY - minY
+                let cx = svgWidth / 2.0
+                let line : obj = Browser.document?createElementNS ("http://www.w3.org/2000/svg", "line")
+                line?setAttribute ("x1", sprintf "%.1f" cx)
+                line?setAttribute ("y1", sprintf "%.1f" localSrcY)
+                line?setAttribute ("x2", sprintf "%.1f" cx)
+                line?setAttribute ("y2", sprintf "%.1f" localDestY)
+                line?setAttribute ("stroke", "#3C7770")
+                line?setAttribute ("stroke-width", "1.5")
+                let arrowSize = 5.0
+                let arrowDir = if branchDown then -1.0 else 1.0
+                let arrowHead : obj =
+                    Browser.document?createElementNS ("http://www.w3.org/2000/svg", "polygon")
+                let arrowPoints =
+                    sprintf "%.1f,%.1f %.1f,%.1f %.1f,%.1f"
+                        cx localDestY
+                        (cx - arrowSize) (localDestY + arrowDir * arrowSize)
+                        (cx + arrowSize) (localDestY + arrowDir * arrowSize)
+                arrowHead?setAttribute ("points", arrowPoints)
+                arrowHead?setAttribute ("fill", "#3C7770")
+                svg?appendChild line |> ignore
+                svg?appendChild arrowHead |> ignore
+                let container : obj =
+                    let linesContent = domNode?querySelector ".lines-content"
+                    if not (isNull (unbox linesContent)) then linesContent
+                    else domNode?querySelector ".overflow-guard"
+                if not (isNull (unbox container)) then
+                    container?appendChild svg |> ignore
+                    branchArrowOverlay <- Some (unbox<Browser.HTMLElement> svg)
 
 let private removeHoverDecoration tId =
     if tId <> -1 && not (List.isEmpty hoverDecoration) then

@@ -150,6 +150,35 @@ if [[ "$SKIP_BUILD" -eq 0 ]]; then
         exit 1
     fi
 
+    # Pin SDK to 2.1.818 via global.json so any newer dotnet on PATH is ignored.
+    # Removed in the trap below so other scripts (start.js, etc.) aren't broken.
+    GLOBAL_JSON_CREATED=0
+    if [[ ! -f global.json ]]; then
+        echo '{"sdk":{"version":"2.1.818","allowPrerelease":true,"rollForward":"latestMajor"}}' > global.json
+        GLOBAL_JSON_CREATED=1
+    fi
+    cleanup_global_json() {
+        if [[ "$GLOBAL_JSON_CREATED" -eq 1 ]]; then
+            rm -f global.json
+        fi
+    }
+    trap cleanup_global_json EXIT
+
+    # Preflight: Paket 5.176.4 (pinned by paket.dependencies) only understands
+    # TFMs up to netcoreapp3.x. A test/*.fsproj targeting net6.0 / net10.0 will
+    # cause Paket to abort restore for *every* project, which then surfaces as
+    # a confusing Fable internal "Invalid value" / IteratedAdjustArityOfLambda
+    # crash on the renderer. Fail fast with a clear message instead.
+    BAD_TFM_FILES="$(grep -rlE '<TargetFramework>net[0-9]+\.[0-9]+</TargetFramework>' \
+        --include='*.fsproj' src test 2>/dev/null || true)"
+    if [[ -n "$BAD_TFM_FILES" ]]; then
+        red "ERROR: Found .fsproj files with a modern TFM (net6.0+). Paket 5.176.4 cannot"
+        red "       parse these and will fail restore for all projects. Set them back to"
+        red "       'netcoreapp2.1' to match the rest of the build:"
+        echo "$BAD_TFM_FILES" | sed 's/^/         /'
+        exit 1
+    fi
+
     # Capture pre-build state so we can detect a silent "didn't actually
     # overwrite" failure (Dropbox / open editor file lock).
     BEFORE_HASH=""
@@ -158,7 +187,17 @@ if [[ "$SKIP_BUILD" -eq 0 ]]; then
     fi
     BUILD_START_TS="$(date +%s)"
 
-    node scripts/build.js
+    if ! node scripts/build.js; then
+        red "ERROR: Fable build failed."
+        red "       If the failure is an 'Invalid value' / IteratedAdjustArityOfLambda"
+        red "       crash from the F# compiler, it is usually caused by stale obj/ folders"
+        red "       or a missing dotnet-fable CliTool registration. Recover with:"
+        red "         find src test -type d \( -name obj -o -name bin \) -prune -exec rm -rf {} +"
+        red "         arch -x86_64 ~/.dotnet-x64/dotnet restore src/Main/Main.fsproj  # macOS arm64"
+        red "         dotnet restore src/Main/Main.fsproj                              # other"
+        red "       then re-run this script."
+        exit 1
+    fi
 
     if [[ ! -f "$BUNDLE" ]]; then
         red "ERROR: Fable build completed but $BUNDLE does not exist."
@@ -218,12 +257,14 @@ FILE_COUNT="$(find "$PACKAGE_DIR" -type f | wc -l | tr -d ' ')"
 green "  Packaged $FILE_COUNT files (with app.asar)"
 
 # ---------------------------------------------------------------------------
-# 3. Creaonly the target's own previous versioned zip (don't nuke siblings).
-rm -f "$ZIP_PATH"----------------------------------------------------
+# 3. Create the release zip with `zip -r` (preserves symlinks for .app bundles)
+# ---------------------------------------------------------------------------
 yellow "[3/4] Creating ${ZIP_NAME}..."
 
-# Remove any prior zips in the dist dir to avoid uploading the wrong one.
-rm -f "${DIST_DIR}"/*.zip
+# Remove only the target's own previous versioned zip — don't nuke siblings
+# (a darwin run on macOS may have left a linux zip in dist-darwin/).
+rm -f "$ZIP_PATH"
+rm -f "${DIST_DIR}/VisUAL2-SU-${PLATFORM}-x64.zip"
 
 (
     cd "$DIST_DIR"

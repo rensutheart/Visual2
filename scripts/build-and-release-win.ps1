@@ -99,7 +99,26 @@ if (-not $SkipBuild) {
     }
     $env:Path = "$dotnetDir;" + $env:Path
 
-    Set-Content -Path "global.json" -Value '{"sdk":{"version":"2.1.818"}}' -Encoding UTF8
+    # Pin SDK to 2.1.818 via global.json so any newer dotnet on PATH is ignored.
+    # Track whether we created it so we don't delete a pre-existing one.
+    $globalJsonCreated = $false
+    if (-not (Test-Path "global.json")) {
+        Set-Content -Path "global.json" -Value '{"sdk":{"version":"2.1.818","allowPrerelease":true,"rollForward":"latestMajor"}}' -Encoding UTF8
+        $globalJsonCreated = $true
+    }
+
+    # Preflight: Paket 5.176.4 (pinned by paket.dependencies) only understands
+    # TFMs up to netcoreapp3.x. A test/*.fsproj targeting net6.0 / net10.0 will
+    # cause Paket to abort restore for *every* project, which then surfaces as
+    # a confusing Fable internal "Invalid value" / IteratedAdjustArityOfLambda
+    # crash on the renderer. Fail fast with a clear message instead.
+    $badTfm = Get-ChildItem -Recurse -Include *.fsproj -Path src,test -ErrorAction SilentlyContinue |
+        Where-Object { (Get-Content $_.FullName -Raw) -match '<TargetFramework>net\d+\.\d+</TargetFramework>' }
+    if ($badTfm) {
+        throw ("Found .fsproj files with a modern TFM (net6.0+). Paket 5.176.4 cannot " +
+               "parse these and will fail restore for all projects. Set them back to " +
+               "'netcoreapp2.1':`n  " + ($badTfm.FullName -join "`n  "))
+    }
 
     # Capture pre-build timestamp/hash so we can detect a *silent* failure where
     # webpack couldn't overwrite app/js/renderer.js (e.g. Dropbox file lock) and
@@ -112,12 +131,23 @@ if (-not $SkipBuild) {
     try {
         node scripts/build.js
         if ($LASTEXITCODE -ne 0) {
+            Write-Host ""
+            Write-Host "Fable build failed (exit $LASTEXITCODE)." -ForegroundColor Red
+            Write-Host "If the failure is an 'Invalid value' / IteratedAdjustArityOfLambda" -ForegroundColor Red
+            Write-Host "crash from the F# compiler, it is usually caused by stale obj/ folders" -ForegroundColor Red
+            Write-Host "or a missing dotnet-fable CliTool registration. Recover with:" -ForegroundColor Red
+            Write-Host "  Get-ChildItem -Recurse -Directory -Include obj,bin -Path src,test | Remove-Item -Recurse -Force" -ForegroundColor Red
+            Write-Host "  dotnet restore src/Main/Main.fsproj" -ForegroundColor Red
+            Write-Host "then re-run this script." -ForegroundColor Red
             throw "Fable build failed with exit code $LASTEXITCODE"
         }
     }
     finally {
-        # CRITICAL: leaving global.json behind breaks start.js and other scripts
-        Remove-Item "global.json" -Force -ErrorAction SilentlyContinue
+        # CRITICAL: leaving global.json behind breaks start.js and other scripts.
+        # Only remove it if we created it.
+        if ($globalJsonCreated) {
+            Remove-Item "global.json" -Force -ErrorAction SilentlyContinue
+        }
     }
 
     if (-not (Test-Path $bundle)) {
