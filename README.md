@@ -117,8 +117,10 @@ Directives:        DCD  DCB  FILL  EQU  ADR
 | Coprocessor | `MCR`, `MRC`, `LDC`, `STC` |
 | Thumb mode | All Thumb/Thumb-2 |
 | Privileged mode | `MSR`, `MRS`, mode switching |
-| Division | `SDIV`, `UDIV` |
 | CPSR/SPSR access | No direct flag register read/write |
+| NEON / VFP | All floating-point and SIMD instructions |
+
+> `SDIV` and `UDIV` *are* supported as of v2.2.3-SU — see the table above.
 
 See [docs/arm-instructions.md](docs/arm-instructions.md) for full details.
 
@@ -284,6 +286,31 @@ yarn pack-linux     # Linux binary → dist/
 yarn pack-osx       # macOS binary → dist/ (macOS host only for DMG)
 ```
 
+### Headless engine smoke test
+
+A small standalone .NET console project at
+[test/TestbenchTest/](test/TestbenchTest/README.md) runs the testbench engine
+outside the Electron GUI. It is useful for diagnosing whether a reported
+testbench bug is in the emulator core or in the renderer / GUI plumbing.
+
+```bash
+cd test/TestbenchTest
+dotnet run        # uses any installed modern .NET SDK
+```
+
+Unlike the main app build (which is pinned to the .NET Core 2.1 SDK via
+`global.json` for Fable), this project targets `net10.0` with
+`<RollForward>LatestMajor</RollForward>`, so it will roll forward to whatever
+recent .NET SDK is installed.
+
+### In-app developer console
+
+In release builds, **View → Toggle Developer Tools**
+(`Cmd+Alt+I` on macOS, `Ctrl+Shift+I` elsewhere) opens the Chromium devtools
+for the renderer. This is the easiest way to see runtime errors, the
+`Running N Tests` / `Test N finished!` log lines from the testbench flow,
+and any console output from the F#-compiled JS bundle.
+
 ---
 
 ## Credits
@@ -297,6 +324,71 @@ This is the **Stellenbosch University (SU) edition** of [VisUAL2](https://github
 ## Changelog (SU Edition)
 
 All changes relative to the original [VisUAL2 v1.06.10](https://github.com/ImperialCollegeLondon/Visual2) from Imperial College London.
+
+### Unreleased
+
+**View menu**
+- "Toggle Developer Tools" is now always available in the View menu
+  (previously hidden behind an internal `debugLevel > 0` flag and so missing
+  from packaged release builds). Shortcut: `Cmd+Alt+I` on macOS,
+  `Ctrl+Shift+I` elsewhere.
+
+**Developer tooling**
+- Added [`test/TestbenchTest/`](test/TestbenchTest/README.md) — a standalone
+  .NET console project that exercises the testbench engine outside the
+  Electron GUI for diagnosing renderer-vs-engine issues.
+
+### v2.2.5-SU
+
+**Editor & UX**
+- Font size and zoom keyboard shortcuts
+- Code formatter and unified button styling
+- Branch target highlighting in the editor
+- Branch arrow now drawn for **any** instruction that modifies PC (not only
+  `B`/`BL`/`BX`)
+
+**Assembly syntax**
+- Support GNU-style labels with trailing colons (`label:`) alongside the
+  existing colon-less form
+
+**Headless / marking**
+- Added [headless marking guide](docs/headless-marking-guide.md) covering
+  automated grading workflows for instructors
+
+**Fixes**
+- `loader.js`: use `decodeURI` instead of `decodeURIComponent` for file paths
+  (fixes load failures with paths containing reserved characters)
+
+### v2.2.4.2
+
+**Fixes**
+- App now loads correctly when its install path contains a `#` character
+
+### v2.2.4.1
+
+**Fixes**
+- Fixed editor background flicker and a colour-mismatch on theme load
+- Fixed display bug after Reset; added "return to Edit mode" hints
+
+### v2.2.4-SU
+
+**Execution & UI**
+- Reorganised execution controls (Run / Step / Reset / breakpoint flow)
+- "Copy code" action on samples
+- New **Samples** menu for one-click loading of bundled examples
+- Polished tooltip styling across the UI
+
+**Display demos**
+- Added FIR filter demo for the memory-mapped pixel display
+- Improved Mandelbrot sample
+
+**Fixes**
+- Fixed macOS crash when re-activating the app after closing all windows
+
+**Build & packaging**
+- Pinned the Fable build to .NET Core SDK 2.1 via `global.json`
+- Enabled ASAR packaging for all platforms in `scripts/package.js`
+- Build pipeline and Windows packaging documentation updates
 
 ### v2.2.3-SU
 

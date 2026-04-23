@@ -307,7 +307,7 @@ let viewMenu() =
             makeRoleItem "Zoom In" (Some "CmdOrCtrl+Plus") MenuItemRole.Zoomin
             makeRoleItem "Zoom Out" (Some "CmdOrCtrl+Shift+-") MenuItemRole.Zoomout
             menuSeparator
-            makeCondItem (debugLevel > 0) "Toggle Dev Tools" (Some devToolsKey) (electron.remote.getCurrentWebContents()).toggleDevTools
+            makeItem "Toggle Developer Tools" (Some devToolsKey) (electron.remote.getCurrentWebContents()).toggleDevTools
         ]
 
 
