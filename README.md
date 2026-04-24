@@ -286,23 +286,6 @@ yarn pack-linux     # Linux binary → dist/
 yarn pack-osx       # macOS binary → dist/ (macOS host only for DMG)
 ```
 
-### Headless engine smoke test
-
-A small standalone .NET console project at
-[test/TestbenchTest/](test/TestbenchTest/README.md) runs the testbench engine
-outside the Electron GUI. It is useful for diagnosing whether a reported
-testbench bug is in the emulator core or in the renderer / GUI plumbing.
-
-```bash
-cd test/TestbenchTest
-dotnet run        # uses any installed modern .NET SDK
-```
-
-Unlike the main app build (which is pinned to the .NET Core 2.1 SDK via
-`global.json` for Fable), this project targets `net10.0` with
-`<RollForward>LatestMajor</RollForward>`, so it will roll forward to whatever
-recent .NET SDK is installed.
-
 ### In-app developer console
 
 In release builds, **View → Toggle Developer Tools**
@@ -332,11 +315,6 @@ All changes relative to the original [VisUAL2 v1.06.10](https://github.com/Imper
   (previously hidden behind an internal `debugLevel > 0` flag and so missing
   from packaged release builds). Shortcut: `Cmd+Alt+I` on macOS,
   `Ctrl+Shift+I` elsewhere.
-
-**Developer tooling**
-- Added [`test/TestbenchTest/`](test/TestbenchTest/README.md) — a standalone
-  .NET console project that exercises the testbench engine outside the
-  Electron GUI for diagnosing renderer-vs-engine issues.
 
 ### v2.2.5-SU
 
