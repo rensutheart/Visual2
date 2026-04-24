@@ -14,8 +14,8 @@
         4. Package the Electron app with --asar (node scripts/package.js win32)
         5. Re-zip the packaged folder using 7-Zip (cross-zip / Compress-Archive
            produce zips that WinRAR cannot extract)
-        6. Optionally delete and re-upload the win32 asset on the matching
-           GitHub release using the GitHub CLI
+        6. Optionally create or update the matching GitHub release asset
+           using the GitHub CLI
 
 .PARAMETER Version
     The version string to embed in the zip name (e.g. "2.2.5"). If omitted,
@@ -33,6 +33,10 @@
     release and uploads the new zip. Requires `gh` to be installed and
     authenticated.
 
+.PARAMETER CreateRelease
+    If provided with -Upload, creates the GitHub release when it does not
+    already exist. The full HEAD commit SHA is used as the release target.
+
 .PARAMETER SkipBuild
     If provided, skips the Fable build step and reuses an existing app/js
     build output. Useful when iterating on packaging only.
@@ -46,6 +50,10 @@
     pwsh -File scripts/build-and-release-win.ps1 -Upload
 
 .EXAMPLE
+    # Full workflow when Windows is the first platform being published
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build-and-release-win.ps1 -Upload -CreateRelease
+
+.EXAMPLE
     # Force a different version/tag
     pwsh -File scripts/build-and-release-win.ps1 -Version 2.3.0 -Tag v2.3.0-SU -Upload
 #>
@@ -56,6 +64,7 @@ param(
     [string]$Tag,
     [string]$Repo = "rensutheart/Visual2",
     [switch]$Upload,
+    [switch]$CreateRelease,
     [switch]$SkipBuild
 )
 
@@ -84,6 +93,7 @@ Write-Host "Tag       : $Tag"
 Write-Host "Repo      : $Repo"
 Write-Host "Zip name  : $ZipName"
 Write-Host "Upload    : $Upload"
+Write-Host "Create rel: $CreateRelease"
 Write-Host "Skip build: $SkipBuild"
 Write-Host ""
 
@@ -285,7 +295,24 @@ if ($Upload) {
     # Delete existing asset if present (gh upload does not overwrite by default).
     $existing = & gh release view $Tag -R $Repo --json assets --jq ".assets[].name" 2>$null
     if ($LASTEXITCODE -ne 0) {
-        throw "gh release view failed for $Tag in $Repo. Does the release exist?"
+        if (-not $CreateRelease) {
+            throw "gh release view failed for $Tag in $Repo. If this is the first platform for the release, re-run with -CreateRelease."
+        }
+
+        $target = (& git rev-parse HEAD).Trim()
+        if ($LASTEXITCODE -ne 0 -or -not $target) {
+            throw "Could not resolve HEAD commit for release target."
+        }
+
+        Write-Host "  Release $Tag does not exist; creating it at $target..."
+        & gh release create $Tag $ZipPath -R $Repo --target $target --title "VisUAL2-SU v$Version" --notes "VisUAL2-SU v$Version. Platform assets are uploaded as they are built."
+        if ($LASTEXITCODE -ne 0) {
+            throw "gh release create failed with exit code $LASTEXITCODE"
+        }
+        Write-Host "  Created release $Tag and uploaded $ZipName" -ForegroundColor Green
+        Write-Host ""
+        Write-Host "Done." -ForegroundColor Cyan
+        exit 0
     }
     if ($existing -match [regex]::Escape($ZipName)) {
         Write-Host "  Deleting existing asset $ZipName..."

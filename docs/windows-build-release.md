@@ -13,17 +13,21 @@ that the build can be reproduced or debugged manually if anything goes wrong.
 
 ## TL;DR — automated build
 
-From the repo root, in PowerShell:
+From the repo root, in PowerShell. Use `pwsh` if it is installed; Windows
+PowerShell also works and is the safest fallback on a stock Windows machine:
 
 ```powershell
 # Build, package, and zip only:
-pwsh -File scripts/build-and-release-win.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build-and-release-win.ps1
 
-# Build, package, zip AND upload to the GitHub release matching package.json's version:
-pwsh -File scripts/build-and-release-win.ps1 -Upload
+# Build, package, zip, and upload to an existing GitHub release:
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build-and-release-win.ps1 -Upload
+
+# Build, package, zip, create the release if needed, and upload:
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build-and-release-win.ps1 -Upload -CreateRelease
 
 # Override version/tag explicitly:
-pwsh -File scripts/build-and-release-win.ps1 -Version 2.3.0 -Tag v2.3.0-SU -Upload
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build-and-release-win.ps1 -Version 2.2.5.1 -Tag v2.2.5.1-SU -Upload
 ```
 
 The final artefact is `dist-win32\VisUAL2-SU-v<VERSION>-win32-x64.zip`.
@@ -134,14 +138,27 @@ For the v2.2.5 build, the resulting zip is approximately **91 MiB**.
 
 ### Step 5 — Upload to GitHub release
 
-The release tag must already exist (created when the macOS / Linux builds
-were uploaded). `gh release upload` does not overwrite by default, so delete
-the existing win32 asset first if it exists:
+If another platform has already created the release, upload to that existing
+tag. `gh release upload` does not overwrite by default, so delete the existing
+win32 asset first if it exists:
 
 ```powershell
 gh release delete-asset v<VERSION>-SU "VisUAL2-SU-v<VERSION>-win32-x64.zip" -R rensutheart/Visual2 --yes
 gh release upload       v<VERSION>-SU "dist-win32\VisUAL2-SU-v<VERSION>-win32-x64.zip" -R rensutheart/Visual2
 ```
+
+If Windows is the first platform being published, create the release with the
+asset in one step. Use the full commit SHA (or a branch name) for `--target`;
+short SHAs can be rejected by the GitHub API as an invalid `target_commitish`.
+
+```powershell
+$sha = git rev-parse HEAD
+gh release create v<VERSION>-SU "dist-win32\VisUAL2-SU-v<VERSION>-win32-x64.zip" -R rensutheart/Visual2 --target $sha --title "VisUAL2-SU v<VERSION>" --notes "VisUAL2-SU v<VERSION>. Platform assets are uploaded as they are built."
+```
+
+The automated script does the same thing when run with `-Upload -CreateRelease`.
+Without `-CreateRelease`, it intentionally fails if the release does not exist,
+which prevents accidental duplicate or mistagged releases.
 
 Verify with:
 
@@ -200,8 +217,9 @@ from git before running the build.
 
 ### 5. Electron 2.x API limitations
 
-The app targets Electron 2 and therefore cannot use modern Web APIs in the
-renderer. In particular:
+The app targets Electron 2.0.8 and therefore cannot use modern Web APIs in the
+renderer. Do not casually update Electron as part of a package refresh unless
+the code is migrated away from Electron 2-era APIs first. In particular:
 
 * `navigator.clipboard` does **not** work — use `electron.remote.clipboard.writeText()` instead.
 * All native APIs (dialog, menu, clipboard) must go through `electron.remote`.
@@ -258,6 +276,15 @@ The build script handles both:
 The cross-zip output (`dist-win32\VisUAL2-SU-win32-x64.zip`) is harmless — we
 delete it and replace it with a 7-Zip-built archive in step 4.
 
+### 8. GitHub CLI auth and release targets
+
+Run `gh auth status` before uploading. If more than one account is configured,
+make sure the active token can write to `rensutheart/Visual2`.
+
+When creating a release manually, prefer `git rev-parse HEAD` for the
+`--target` value. A short SHA that works in local Git commands can still be
+rejected by GitHub release creation.
+
 ---
 
 ## Manual smoke-test
@@ -267,17 +294,21 @@ After producing the zip, before uploading it is worth doing the following:
 1. Extract `dist-win32\VisUAL2-SU-v<VERSION>-win32-x64.zip` to a temp folder.
 2. Run `VisUAL2-SU.exe` from the extracted folder.
 3. Open one of the bundled samples (`File ▸ Open ▸ samples\…`).
-4. Step through a few instructions and confirm the new "branch arrow on
-   any PC-modifying instruction" feature lights up correctly.
+4. Set a breakpoint, click Run, and confirm the red breakpoint dot remains
+   visible when execution stops on that line.
+5. Insert a line above the breakpoint, click Run again, and confirm the
+   breakpoint follows the instruction instead of disappearing.
 
 ---
 
 ## Version naming
 
-* Git tag: `v<MAJOR>.<MINOR>.<PATCH>-SU` (e.g. `v2.2.5-SU`)
-* Win zip: `VisUAL2-SU-v<MAJOR>.<MINOR>.<PATCH>-win32-x64.zip`
-* Mac zip: `VisUAL2-SU-v<MAJOR>.<MINOR>.<PATCH>-macOS-x64.zip`
-* Linux zip: `VisUAL2-SU-v<MAJOR>.<MINOR>.<PATCH>-linux-x64.zip`
+* Git tag: `v<VERSION>-SU` (e.g. `v2.2.5-SU` or `v2.2.5.1-SU`)
+* Win zip: `VisUAL2-SU-v<VERSION>-win32-x64.zip`
+* Mac zip: `VisUAL2-SU-v<VERSION>-macOS-x64.zip`
+* Linux zip: `VisUAL2-SU-v<VERSION>-linux-x64.zip`
 
 The version string in `package.json` is the source of truth — bump it before
-building, and the script will use it automatically.
+building, and the script will use it automatically. A fourth hotfix component
+is acceptable when you need a small follow-up release without changing the
+broader minor/patch numbering scheme.

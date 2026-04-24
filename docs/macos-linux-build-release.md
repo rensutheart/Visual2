@@ -21,12 +21,15 @@ From the repo root, in any POSIX shell:
 scripts/build-and-release-unix.sh --platform darwin
 scripts/build-and-release-unix.sh --platform linux
 
-# Build, package, zip AND upload to the GitHub release matching package.json's version:
+# Build, package, zip, and upload to an existing GitHub release:
 scripts/build-and-release-unix.sh --platform darwin --upload
 scripts/build-and-release-unix.sh --platform linux  --upload
 
+# Build, package, zip, create the release if needed, and upload:
+scripts/build-and-release-unix.sh --platform darwin --upload --create-release
+
 # Override version/tag explicitly:
-scripts/build-and-release-unix.sh --platform darwin --version 2.3.0 --tag v2.3.0-SU --upload
+scripts/build-and-release-unix.sh --platform darwin --version 2.2.5.1 --tag v2.2.5.1-SU --upload
 ```
 
 Final artefacts:
@@ -37,6 +40,11 @@ Final artefacts:
 Both Linux and macOS builds can be produced from a single macOS host (Electron
 packager cross-compiles transparently because Electron itself ships
 prebuilt binaries for every target platform).
+
+Before building on the Mac, pull the latest `master` and confirm that
+`package.json` already contains the release version you intend to ship. For
+example, the Windows hotfix release used version `2.2.5.1` and tag
+`v2.2.5.1-SU`.
 
 ---
 
@@ -76,11 +84,10 @@ automatically wraps every `dotnet` invocation in `arch -x86_64 ~/.dotnet-x64/dot
 On Intel Macs and Linux this branch is skipped and the system `dotnet` is used
 directly — install 2.1.818 into the system PATH if that's your setup.
 
-> **No `global.json` needed on Unix.** Unlike the Windows pipeline (which uses
-> a temporary `global.json` to pin the SDK against a system-wide .NET 8+
-> install), the macOS arm64 build isolates the SDK at the binary level —
-> `~/.dotnet-x64/sdk/` only contains 2.1.818, so there is nothing to pin
-> against. `global.json` is in `.gitignore` and must not be committed.
+> **Temporary `global.json` only.** The build script now creates a temporary
+> `global.json` to pin .NET Core SDK 2.1.818, then removes it before exiting.
+> This keeps the Fable build deterministic without breaking `start.js` or other
+> scripts later. `global.json` is in `.gitignore` and must not be committed.
 
 ---
 
@@ -175,15 +182,29 @@ For the v2.2.5 build, sizes are approximately:
 
 ### Step 4 — Upload to GitHub release
 
-The release tag must already exist (created when any of the three platform
-builds were first uploaded). `gh release upload` does not overwrite by
-default, so the script deletes the existing per-platform asset first if it
-exists:
+If another platform has already created the release, upload to that existing
+tag. `gh release upload` does not overwrite by default, so the script deletes
+the existing per-platform asset first if it exists:
 
 ```bash
 gh release delete-asset v<VERSION>-SU "VisUAL2-SU-v<VERSION>-<plat>-x64.zip" -R rensutheart/Visual2 --yes
 gh release upload       v<VERSION>-SU "dist-<plat>/VisUAL2-SU-v<VERSION>-<plat>-x64.zip" -R rensutheart/Visual2
 ```
+
+If macOS or Linux is the first platform being published, create the release
+with the asset in one step. Use the full commit SHA (or a branch name) for
+`--target`; short SHAs can be rejected by the GitHub API as an invalid
+`target_commitish`.
+
+```bash
+sha="$(git rev-parse HEAD)"
+gh release create "v<VERSION>-SU" "dist-<plat>/VisUAL2-SU-v<VERSION>-<plat>-x64.zip" -R rensutheart/Visual2 --target "$sha" --title "VisUAL2-SU v<VERSION>" --notes "VisUAL2-SU v<VERSION>. Platform assets are uploaded as they are built."
+```
+
+The automated script does the same thing when run with `--upload
+--create-release`. Without `--create-release`, it intentionally fails if the
+release does not exist, which prevents accidental duplicate or mistagged
+releases.
 
 Verify with:
 
@@ -253,10 +274,11 @@ Linux.
 
 If `dotnet --version` prints something other than `2.1.818` when invoked from
 the Fable build, you've probably let the system `dotnet` (`/usr/local/share/dotnet`,
-typically arm64) win the PATH lookup. The fix is **not** to add a `global.json`
-(that breaks `start.js` later); it is to ensure the build runs through
-`scripts/platform-lib.js` `runDotnet` helper, which forces
-`arch -x86_64 ~/.dotnet-x64/dotnet`.
+typically arm64) win the PATH lookup. The build script handles this by creating
+a temporary `global.json` and by running through `scripts/platform-lib.js`
+`runDotnet`, which forces `arch -x86_64 ~/.dotnet-x64/dotnet` on Apple Silicon.
+Do not leave a hand-written `global.json` behind after debugging; it breaks
+`start.js` and other scripts later.
 
 If you call `dotnet` directly from a shell on an arm64 Mac, you must do so
 under Rosetta:
@@ -267,14 +289,24 @@ arch -x86_64 ~/.dotnet-x64/dotnet --version    # 2.1.818
 
 ### 7. Electron 2.x API limitations
 
-The app targets Electron 2 and therefore cannot use modern Web APIs in the
-renderer. In particular:
+The app targets Electron 2.0.8 and therefore cannot use modern Web APIs in the
+renderer. Do not casually update Electron as part of a package refresh unless
+the code is migrated away from Electron 2-era APIs first. In particular:
 
 * `navigator.clipboard` does **not** work — use `electron.remote.clipboard.writeText()` instead.
 * All native APIs (dialog, menu, clipboard) must go through `electron.remote`.
 
 This is unrelated to packaging but is the most common runtime surprise after
 upgrading any UI code.
+
+### 8. GitHub CLI auth and release targets
+
+Run `gh auth status` before uploading. If more than one account is configured,
+make sure the active token can write to `rensutheart/Visual2`.
+
+When creating a release manually, prefer `git rev-parse HEAD` for the
+`--target` value. A short SHA that works in local Git commands can still be
+rejected by GitHub release creation.
 
 ---
 
@@ -288,8 +320,10 @@ After producing each zip, before uploading it is worth doing the following:
 2. Open `VisUAL2-SU.app` (Right-click → Open the first time, to bypass Gatekeeper —
    the app is unsigned).
 3. Open one of the bundled samples (`File ▸ Open ▸ samples/…`).
-4. Step through a few instructions and confirm the new "branch arrow on
-   any PC-modifying instruction" feature lights up correctly.
+4. Set a breakpoint, click Run, and confirm the red breakpoint dot remains
+   visible when execution stops on that line.
+5. Insert a line above the breakpoint, click Run again, and confirm the
+   breakpoint follows the instruction instead of disappearing.
 
 ### Linux
 
@@ -302,10 +336,12 @@ After producing each zip, before uploading it is worth doing the following:
 
 ## Version naming
 
-* Git tag: `v<MAJOR>.<MINOR>.<PATCH>-SU` (e.g. `v2.2.5-SU`)
-* Win zip: `VisUAL2-SU-v<MAJOR>.<MINOR>.<PATCH>-win32-x64.zip`
-* Mac zip: `VisUAL2-SU-v<MAJOR>.<MINOR>.<PATCH>-macOS-x64.zip`
-* Linux zip: `VisUAL2-SU-v<MAJOR>.<MINOR>.<PATCH>-linux-x64.zip`
+* Git tag: `v<VERSION>-SU` (e.g. `v2.2.5-SU` or `v2.2.5.1-SU`)
+* Win zip: `VisUAL2-SU-v<VERSION>-win32-x64.zip`
+* Mac zip: `VisUAL2-SU-v<VERSION>-macOS-x64.zip`
+* Linux zip: `VisUAL2-SU-v<VERSION>-linux-x64.zip`
 
 The version string in `package.json` is the source of truth — bump it before
-building, and the script will use it automatically.
+building, and the script will use it automatically. A fourth hotfix component
+is acceptable when you need a small follow-up release without changing the
+broader minor/patch numbering scheme.

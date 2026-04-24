@@ -21,8 +21,8 @@
 #       - macOS additionally produces a .dmg via electron-installer-dmg
 #         (created by scripts/package.js); we ship the .zip as the primary
 #         download for parity with Windows/Linux.
-#   5. Optionally delete and re-upload the platform asset on the matching
-#      GitHub release using the GitHub CLI (`gh`).
+#   5. Optionally create or update the matching GitHub release asset using
+#      the GitHub CLI (`gh`).
 #
 # Usage:
 #   scripts/build-and-release-unix.sh --platform darwin                # build + zip only
@@ -31,6 +31,8 @@
 #   scripts/build-and-release-unix.sh --platform linux  --skip-build   # repackage only
 #   scripts/build-and-release-unix.sh --platform darwin \
 #       --version 2.3.0 --tag v2.3.0-SU --upload
+#   scripts/build-and-release-unix.sh --platform darwin \
+#       --version 2.3.0 --tag v2.3.0-SU --upload --create-release
 # ---------------------------------------------------------------------------
 
 set -euo pipefail
@@ -43,6 +45,7 @@ VERSION=""
 TAG=""
 REPO="rensutheart/Visual2"
 UPLOAD=0
+CREATE_RELEASE=0
 SKIP_BUILD=0
 
 usage() {
@@ -55,6 +58,7 @@ Options:
   --tag <tag>                 Override release tag (default: v<version>-SU).
   --repo <owner/name>         GitHub repo (default: $REPO).
   --upload                    Delete & re-upload the platform asset on the release.
+  --create-release            With --upload, create the release if it does not exist.
   --skip-build                Skip the Fable build, reuse existing app/js/renderer.js.
   -h, --help                  Show this help.
 EOF
@@ -67,6 +71,7 @@ while [[ $# -gt 0 ]]; do
         --tag)      TAG="$2";      shift 2 ;;
         --repo)     REPO="$2";     shift 2 ;;
         --upload)   UPLOAD=1;      shift ;;
+        --create-release) CREATE_RELEASE=1; shift ;;
         --skip-build) SKIP_BUILD=1; shift ;;
         -h|--help)  usage; exit 0 ;;
         *) echo "Unknown argument: $1" >&2; usage; exit 2 ;;
@@ -126,6 +131,7 @@ echo  "Tag       : $TAG"
 echo  "Repo      : $REPO"
 echo  "Zip name  : $ZIP_NAME"
 echo  "Upload    : $UPLOAD"
+echo  "Create rel: $CREATE_RELEASE"
 echo  "Skip build: $SKIP_BUILD"
 echo ""
 
@@ -292,10 +298,26 @@ if [[ "$UPLOAD" -eq 1 ]]; then
         exit 1
     fi
 
-    # Verify release exists (don't auto-create — releases are co-owned across platforms).
+    # Verify release exists. If this platform is the first one being published,
+    # --create-release creates the release using the full HEAD SHA. Avoid short
+    # SHAs here because the GitHub API can reject them as target_commitish.
     if ! gh release view "$TAG" -R "$REPO" --json tagName >/dev/null 2>&1; then
-        red "ERROR: Release $TAG does not exist on $REPO. Create it first."
-        exit 1
+        if [[ "$CREATE_RELEASE" -eq 0 ]]; then
+            red "ERROR: Release $TAG does not exist on $REPO."
+            red "       If this is the first platform for the release, re-run with --create-release."
+            exit 1
+        fi
+
+        TARGET_SHA="$(git rev-parse HEAD)"
+        yellow "  Release $TAG does not exist; creating it at $TARGET_SHA..."
+        gh release create "$TAG" "$ZIP_PATH" -R "$REPO" \
+            --target "$TARGET_SHA" \
+            --title "VisUAL2-SU v${VERSION}" \
+            --notes "VisUAL2-SU v${VERSION}. Platform assets are uploaded as they are built."
+        green "  Created release $TAG and uploaded $ZIP_NAME"
+        cyan ""
+        cyan "Done."
+        exit 0
     fi
 
     EXISTING="$(gh release view "$TAG" -R "$REPO" --json assets --jq '.assets[].name')"
