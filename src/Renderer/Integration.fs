@@ -385,6 +385,8 @@ let UpdateGUIFromRunState(pInfo : RunInfo) =
         if isBreakpoint then
             Tabs.setStatusButton "Breakpoint Reached" "btn-negative"
         highlightCurrentAndNextIns "editor-line-highlight" (pInfo) currentFileTabId
+        if isBreakpoint then
+            Editors.restoreStoredBreakpointDecorations currentFileTabId
         enableEditors()
 
     | PSError(NotInstrMem x) ->
@@ -502,7 +504,10 @@ let runTests startTest tests stepFunc =
 let rec asmStepDisplay (breakc : BreakCondition) steps ri' =
     let effectiveBreakc =
         if Refs.displayModeActive && breakc = NoBreak then DisplayBreak else breakc
-    let ri = { ri' with BreakCond = effectiveBreakc }
+    let ri =
+        { ri' with
+            BreakCond = effectiveBreakc
+            Breakpoints = Refs.getBreakpoints currentFileTabId }
     let loopMessage() =
         let steps = Refs.vSettings.SimulatorMaxSteps
         sprintf "WARNING Possible infinite loop: max number of steps (%s) exceeded. To disable this warning use Edit -> Preferences" steps
@@ -620,15 +625,16 @@ let runEditorTab breakCondition steps =
         | ParseErrorMode _ ->
             let tId = currentFileTabId
             removeEditorDecorations tId
+            Editors.syncStoredBreakpointsFromDecorations tId
             match tryParseAndIndentCode tId with
             | Some(lim, _) ->
-                Editors.reapplyBreakpointDecorations tId
+                Editors.restoreStoredBreakpointDecorations tId
                 disableEditors()
                 let ri = lim |> getRunInfoFromImage breakCondition
                 setCurrentModeActiveFromInfo RunState.Running ri
                 asmStepDisplay breakCondition steps ri
             | _ ->
-                Editors.reapplyBreakpointDecorations tId
+                Editors.restoreStoredBreakpointDecorations tId
         | ActiveMode(RunState.Paused, ri) ->
             asmStepDisplay breakCondition (steps + ri.StepsDone) ri
         | ActiveMode _

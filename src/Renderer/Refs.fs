@@ -616,7 +616,9 @@ let mutable displayAutoRefreshTimerId : int option = None
 /// Current state of simulator
 let mutable runMode : ExecutionTop.RunMode = ExecutionTop.ResetMode
 
-/// Breakpoints per tab: tabId -> set of 1-based line numbers
+/// Breakpoints per tab: tabId -> set of current 1-based editor line numbers.
+/// The editor decorations are the source of truth, so these values can be
+/// resynchronised after edits before we reapply the glyphs.
 let mutable breakpoints : Map<int, Set<int>> = Map.empty
 
 /// Get breakpoints for a given tab
@@ -676,4 +678,3 @@ let resetRegs() =
             | 13 -> 0xFF000000u
             | _ -> 0u) false)
     |> ignore
-

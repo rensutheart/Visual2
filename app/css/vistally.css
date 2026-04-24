@@ -312,7 +312,11 @@
 
 /* Hover highlight for non-decorated lines during execution mode */
 .editor-line-hover {
-    background-color: #535353;
+    background-color: rgba(255, 255, 255, 0.09);
+}
+
+.editor-line-hover-margin {
+    background-color: rgba(255, 255, 255, 0.09);
 }
 
 .disabled-click {
@@ -401,12 +405,16 @@
 }
 
 .editor-glyph-margin-breakpoint {
+    position: relative;
+    z-index: 30;
 }
 
 .editor-glyph-margin-breakpoint:before {
     content: "\25CF";
     color: #d44;
     font-size: 13px;
+    position: relative;
+    z-index: 31;
 }
 
 .editor-line-breakpoint {
@@ -749,4 +757,3 @@ div.after {
     font-size: 5px;
     fill: blue;
 }
-

@@ -103,7 +103,9 @@ let installReadonlyKeyHandler () =
 let mutable decorations : obj list = []
 let mutable lineDecorations : obj list = []
 
-/// Breakpoint decoration handles: lineNo -> decoration handle
+/// Breakpoint decoration handles: original insertion lineNo -> decoration handle.
+/// Monaco moves decorations as the document is edited, so we query their
+/// current range before syncing breakpoint state back into Refs.breakpoints.
 let mutable bpDecorationHandles : Map<int, obj> = Map.empty
 
 [<Emit "new monaco.Range($0,$1,$2,$3)">]
@@ -116,6 +118,10 @@ let lineDecoration _editor _decorations _range _name = jsNative
 
 [<Emit "$0.deltaDecorations($1, [{ range: new monaco.Range(1,1,1,1), options : { } }]);">]
 let removeDecorations _editor _decorations =
+    jsNative
+
+[<Emit "(() => { var model = $0.getModel(); if (!model) return 0; var range = model.getDecorationRange($1[0]); return range ? range.startLineNumber : 0; })()">]
+let getDecorationStartLine _editor _decorations : int =
     jsNative
 
 /// Set of line numbers that currently have execution highlights
@@ -159,12 +165,38 @@ let addBreakpointGlyph tId lineNo =
                     ])
     bpDecorationHandles <- Map.add lineNo handle bpDecorationHandles
 
+let getBreakpointHandlesAtCurrentLines tId =
+    if tId = -1 || not (Map.containsKey tId Refs.editors) then
+        []
+    else
+        let editor = Refs.editors.[tId]
+        bpDecorationHandles
+        |> Map.toList
+        |> List.choose (fun (storedLineNo, handle) ->
+            let currentLineNo = getDecorationStartLine editor handle
+            if currentLineNo > 0 then
+                Some(storedLineNo, currentLineNo, handle)
+            else
+                None)
+
+let syncStoredBreakpointsFromDecorations tId =
+    let syncedLines =
+        getBreakpointHandlesAtCurrentLines tId
+        |> List.map (fun (_, currentLineNo, _) -> currentLineNo)
+        |> Set.ofList
+    if not (Set.isEmpty syncedLines) || Map.isEmpty bpDecorationHandles then
+        Refs.breakpoints <- Map.add tId syncedLines Refs.breakpoints
+
+let tryFindBreakpointHandleAtCurrentLine tId lineNo =
+    getBreakpointHandlesAtCurrentLines tId
+    |> List.tryFind (fun (_, currentLineNo, _) -> currentLineNo = lineNo)
+
 /// Remove a breakpoint glyph decoration from a line
 let removeBreakpointGlyph tId lineNo =
-    match Map.tryFind lineNo bpDecorationHandles with
-    | Some handle ->
+    match tryFindBreakpointHandleAtCurrentLine tId lineNo with
+    | Some(storedLineNo, _, handle) ->
         removeDecorations Refs.editors.[tId] handle
-        bpDecorationHandles <- Map.remove lineNo bpDecorationHandles
+        bpDecorationHandles <- Map.remove storedLineNo bpDecorationHandles
     | None -> ()
 
 /// Remove all breakpoint decorations
@@ -174,13 +206,18 @@ let removeAllBreakpointGlyphs tId =
             removeDecorations Refs.editors.[tId] handle)
         bpDecorationHandles <- Map.empty
 
-/// Reapply all breakpoint decorations for a tab (e.g. after editor content changes)
-let reapplyBreakpointDecorations tId =
+let restoreStoredBreakpointDecorations tId =
     removeAllBreakpointGlyphs tId
     Refs.getBreakpoints tId |> Set.iter (addBreakpointGlyph tId)
 
+/// Reapply all breakpoint decorations for a tab (e.g. after editor content changes)
+let reapplyBreakpointDecorations tId =
+    syncStoredBreakpointsFromDecorations tId
+    restoreStoredBreakpointDecorations tId
+
 /// Toggle a breakpoint on a given line (only if the line contains code)
 let toggleBreakpoint tId lineNo =
+    syncStoredBreakpointsFromDecorations tId
     let current = Refs.getBreakpoints tId
     if Set.contains lineNo current then
         Refs.breakpoints <- Map.add tId (Set.remove lineNo current) Refs.breakpoints
@@ -231,15 +268,23 @@ let editorLineDecorate editor number decoration (rangeOpt : (int * int) option) 
 // highlight a particular line
 let highlightLine tId number className =
     executionHighlightedLines <- Set.add number executionHighlightedLines
-    editorLineDecorate
-        Refs.editors.[tId]
-        number
-        (createObj [
+    let hasBreakpoint = Set.contains number (Refs.getBreakpoints tId)
+    let decoration =
+        [
             "isWholeLine" ==> true
             "isTrusted" ==> true
             "className" ==> className
             "marginClassName" ==> (className + "-margin")
-        ])
+        ]
+        |> fun opts ->
+            if hasBreakpoint then
+                opts @ [ "glyphMarginClassName" ==> "editor-glyph-margin-breakpoint" ]
+            else
+                opts
+    editorLineDecorate
+        Refs.editors.[tId]
+        number
+        (createObj decoration)
         None
 
 let highlightGlyph tId number glyphClassName =
@@ -336,7 +381,7 @@ let private removeHoverDecoration tId =
         hoverDecoration <- []
 
 let private installHoverHighlight tId =
-    if tId <> -1 then
+    if tId <> -1 && List.isEmpty hoverDisposables then
         let editor = Refs.editors.[tId]
         let d1 =
             editor?onMouseMove (fun (e : obj) ->
@@ -355,7 +400,9 @@ let private installHoverHighlight tId =
                                         (monacoRange lineNo 1 lineNo 1)
                                         (createObj [
                                             "isWholeLine" ==> true
+                                            "isTrusted" ==> true
                                             "className" ==> "editor-line-hover"
+                                            "marginClassName" ==> "editor-line-hover-margin"
                                         ])
                         hoverDecoration <- [newDec]
                 createObj [])
@@ -387,7 +434,7 @@ let enableEditors() =
     Refs.fileTabMenu.classList.remove ("disabled-click")
     Refs.fileTabMenu.onclick <- (fun _ -> createObj [])
     updateEditor Refs.currentFileTabId false
-    removeHoverHighlight Refs.currentFileTabId
+    installHoverHighlight Refs.currentFileTabId
     Refs.darkenOverlay.classList.add ([| "invisible" |])
     // Hide the reset hint toast if visible
     let hint = Refs.getHtml "editor-readonly-toast"
@@ -543,4 +590,3 @@ let toolTipInfo (v : int, orientation : string)
                     
             | DP.Op2.RegisterWithRRX rn -> makeShiftTooltip pos (dp, dp', uF') rn (None, alu) 1u op2
     | _ -> ()
-
