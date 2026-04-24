@@ -74,17 +74,22 @@ function localBin(binName) {
   return path.join(resolveFromRoot(modulesDirName), ".bin", binName + suffix);
 }
 
-function runDotnet(args, options) {
+function dotnetInvocation(args) {
   if (platform === "darwin" && process.arch === "arm64" && fs.existsSync(x64DotnetPath)) {
-    run("arch", ["-x86_64", x64DotnetPath].concat(args), options);
-    return;
+    return { command: "arch", args: ["-x86_64", x64DotnetPath].concat(args) };
   }
 
-  run("dotnet", args, options);
+  return { command: "dotnet", args: args };
+}
+
+function runDotnet(args, options) {
+  const invocation = dotnetInvocation(args);
+  run(invocation.command, invocation.args, options);
 }
 
 module.exports = {
   distDirName,
+  dotnetInvocation,
   ensureDir,
   ensurePlatformDirs,
   fableDirName,

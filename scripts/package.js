@@ -41,6 +41,11 @@ run(localBin("electron-packager"), packagerArgs, { cwd: repoRoot });
 const packageDir = resolveFromRoot(path.join(distDirName, "VisUAL2-SU-" + targetPlatform + "-x64"));
 
 if (targetPlatform === "darwin") {
+  if (process.env.VISUAL2_SKIP_DMG === "1") {
+    console.log("Skipping optional macOS DMG creation (VISUAL2_SKIP_DMG=1)");
+    process.exit(0);
+  }
+
   run(localBin("electron-installer-dmg"), [
     "--overwrite",
     "--icon=app/visual.ico.icns",

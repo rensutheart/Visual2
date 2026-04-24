@@ -34,8 +34,8 @@ scripts/build-and-release-unix.sh --platform darwin --version 2.2.5.1 --tag v2.2
 
 Final artefacts:
 
-* `dist-darwin/VisUAL2-SU-v<VERSION>-macOS-x64.zip`
-* `dist-linux/VisUAL2-SU-v<VERSION>-linux-x64.zip`
+* `dist-<host>/VisUAL2-SU-v<VERSION>-macOS-x64.zip`
+* `dist-<host>/VisUAL2-SU-v<VERSION>-linux-x64.zip`
 
 Both Linux and macOS builds can be produced from a single macOS host (Electron
 packager cross-compiles transparently because Electron itself ships
@@ -114,8 +114,14 @@ node scripts/build.js
 ```
 
 `scripts/build.js` calls `runDotnet` from `scripts/platform-lib.js`, which on
-Apple Silicon transparently runs `arch -x86_64 ~/.dotnet-x64/dotnet`. The
-output is `app/js/renderer.js` plus `main.js` at the repo root.
+Apple Silicon transparently runs `arch -x86_64 ~/.dotnet-x64/dotnet`. It first
+restores `src/Main/Main.fsproj`, then starts `dotnet fable start` explicitly
+on a free local port and runs Webpack with `FABLE_SERVER_PORT` set to that
+port. This avoids a Rosetta/macOS failure where `dotnet fable webpack --port
+free` starts the daemon but then exits with `Cannot start Fable daemon ...
+Permission denied`.
+
+The output is `app/js/renderer.js` plus `main.js` at the repo root.
 
 ### Step 2 — Package with electron-packager
 
@@ -152,11 +158,12 @@ The packaged app lands in:
 > `dist-linux/`. The build script handles this transparently and the final
 > zip name is always `VisUAL2-SU-v<VERSION>-<macOS|linux>-x64.zip`.
 
-For macOS, `scripts/package.js` also runs `electron-installer-dmg` to produce
-`dist-darwin/visual2-su-osx.dmg`. We don't ship that as the primary download
-(the .zip is the canonical asset on the GitHub release for parity with the
-other platforms), but it's useful for students who prefer a drag-to-Applications
-installer.
+For normal `node scripts/package.js darwin` runs, `scripts/package.js` also
+tries to run `electron-installer-dmg` to produce
+`dist-darwin/visual2-su-osx.dmg`. The release script sets
+`VISUAL2_SKIP_DMG=1` for macOS because the DMG is not uploaded and the old
+`macos-alias` native dependency may be x64-only while the host Node process is
+arm64. The release zip remains the canonical macOS download.
 
 ### Step 3 — Create the versioned zip
 
@@ -175,10 +182,10 @@ The `-y` flag is **critical on macOS**: it preserves symbolic links inside the
 `.app` bundle (Electron's `Versions/A` -> `Current` style symlinks). Without
 it, the extracted app refuses to launch with a bad-bundle error.
 
-For the v2.2.5 build, sizes are approximately:
+For the v2.2.5.1 build, sizes are approximately:
 
-* macOS: 210–225 MiB
-* Linux: 120–135 MiB
+* macOS: 117 MiB
+* Linux: 117 MiB
 
 ### Step 4 — Upload to GitHub release
 
@@ -253,16 +260,34 @@ fails loudly if the hash is unchanged *and* the mtime predates the build
 start. If you hit this, close any open editor on the file, pause Dropbox
 sync, and re-run.
 
-### 4. Cross-zip exit code is unreliable
+### 4. Stale Paket/MSBuild restore state
 
-`scripts/package.js` ends by invoking `cross-zip`. On some shells / dist
-folders this exits non-zero even when packaging itself succeeded. The script
-runs it with `|| true` and validates success by checking that the packaged
-tree and `app.asar` exist, **not** by checking the exit code. The unversioned
-cross-zip output is then deleted and replaced with the versioned `zip -ryq`
-archive.
+**Symptom:** the Fable build exits with `Version for package dotnet-fable
+could not be resolved` or `No executable found matching command
+"dotnet-fable"`, especially after cleaning or moving files in the Dropbox
+checkout.
 
-### 5. The macOS build only runs on macOS
+**Recovery:** delete stale build outputs and the Paket restore cache, then let
+`node scripts/build.js` restore again:
+
+```bash
+find src test -type d \( -name obj -o -name bin \) -prune -exec rm -rf {} +
+rm -f paket-files/paket.restore.cached
+node scripts/build.js
+```
+
+The release script now performs that cleanup automatically before a full build.
+
+### 5. Cross-zip exit code is unreliable
+
+For Linux, `scripts/package.js` ends by invoking `cross-zip`. On some shells /
+dist folders this exits non-zero even when packaging itself succeeded. The
+script runs it with `|| true` and validates success by checking that the
+packaged tree and `app.asar` exist, **not** by checking the exit code. The
+unversioned cross-zip output is then deleted and replaced with the versioned
+`zip -ryq` archive.
+
+### 6. The macOS build only runs on macOS
 
 `electron-packager` can target Linux from a macOS host (cross-builds work
 because Electron ships prebuilt platform binaries), but it cannot target
@@ -270,7 +295,7 @@ macOS from Linux because of the macOS-specific code-signing / Info.plist
 work. **Run macOS builds on a Mac.** Linux builds work from either Mac or
 Linux.
 
-### 6. Dotnet SDK selection on Apple Silicon
+### 7. Dotnet SDK selection on Apple Silicon
 
 If `dotnet --version` prints something other than `2.1.818` when invoked from
 the Fable build, you've probably let the system `dotnet` (`/usr/local/share/dotnet`,
@@ -287,7 +312,7 @@ under Rosetta:
 arch -x86_64 ~/.dotnet-x64/dotnet --version    # 2.1.818
 ```
 
-### 7. Electron 2.x API limitations
+### 8. Electron 2.x API limitations
 
 The app targets Electron 2.0.8 and therefore cannot use modern Web APIs in the
 renderer. Do not casually update Electron as part of a package refresh unless
@@ -299,7 +324,7 @@ the code is migrated away from Electron 2-era APIs first. In particular:
 This is unrelated to packaging but is the most common runtime surprise after
 upgrading any UI code.
 
-### 8. GitHub CLI auth and release targets
+### 9. GitHub CLI auth and release targets
 
 Run `gh auth status` before uploading. If more than one account is configured,
 make sure the active token can write to `rensutheart/Visual2`.

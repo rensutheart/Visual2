@@ -308,13 +308,24 @@ This is the **Stellenbosch University (SU) edition** of [VisUAL2](https://github
 
 All changes relative to the original [VisUAL2 v1.06.10](https://github.com/ImperialCollegeLondon/Visual2) from Imperial College London.
 
-### Unreleased
+### v2.2.5.1-SU
+
+**Editor & breakpoints**
+- Fixed live breakpoint updates while editing source.
+- Breakpoints are preserved across edits when the underlying instruction moves.
+- Refined editor highlights so the active instruction, branch target, and
+  breakpoint state remain visible together.
 
 **View menu**
 - "Toggle Developer Tools" is now always available in the View menu
   (previously hidden behind an internal `debugLevel > 0` flag and so missing
   from packaged release builds). Shortcut: `Cmd+Alt+I` on macOS,
   `Ctrl+Shift+I` elsewhere.
+
+**Release assets**
+- Published Windows, macOS, and Linux x64 release zips on GitHub.
+- Hardened the macOS/Linux release script for Dropbox-hosted checkouts, stale
+  Paket/MSBuild state, and Rosetta-based Fable builds.
 
 ### v2.2.5-SU
 

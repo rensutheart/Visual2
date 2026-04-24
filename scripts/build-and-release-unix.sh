@@ -185,6 +185,13 @@ if [[ "$SKIP_BUILD" -eq 0 ]]; then
         exit 1
     fi
 
+    # Release builds should not depend on stale Paket/MSBuild state. In the
+    # Dropbox checkout this cache can survive file churn and leave the
+    # dotnet-fable CLI tool unresolved until obj/bin and the restore cache are
+    # cleared manually.
+    find src test -type d \( -name obj -o -name bin \) -prune -exec rm -rf {} +
+    rm -f paket-files/paket.restore.cached
+
     # Capture pre-build state so we can detect a silent "didn't actually
     # overwrite" failure (Dropbox / open editor file lock).
     BEFORE_HASH=""
@@ -238,10 +245,16 @@ yellow "[2/4] Packaging Electron app for ${PLATFORM}-x64..."
 rm -rf "$PACKAGE_DIR"
 rm -f  "${DIST_DIR}/VisUAL2-SU-${PLATFORM}-x64.zip"
 
-# scripts/package.js calls cross-zip after packaging, which can be flaky.
-# We don't trust its exit code; we verify by checking the packaged tree.
-# Use `|| true` so a non-zero from cross-zip doesn't abort the build.
-node scripts/package.js "$PLATFORM" || true
+# scripts/package.js calls cross-zip after Linux packaging, which can be flaky.
+# For macOS release zips, skip the optional DMG because it is not uploaded and
+# its native macos-alias dependency can be the wrong architecture on Apple
+# Silicon/Rosetta hosts. We verify the packaged tree instead of trusting the
+# package script exit code.
+if [[ "$PLATFORM" == "darwin" ]]; then
+    VISUAL2_SKIP_DMG=1 node scripts/package.js "$PLATFORM"
+else
+    node scripts/package.js "$PLATFORM" || true
+fi
 
 # Validate the packaged folder + asar payload exist.
 if [[ "$PLATFORM" == "darwin" ]]; then
